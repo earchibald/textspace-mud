@@ -150,63 +150,31 @@ The system supports two storage backends that can be switched seamlessly:
 - Perfect for development and small deployments
 
 **Database Backend (Production)**
-- MongoDB for document storage
-- Redis for caching and sessions
+- SQLite for document storage (single file database)
 - Scalable for production use
-- Supports multiple server instances
+- No external dependencies (SQLite built into Python)
+- Supports multiple server instances with file locking
 
 ### Database Setup
 
 #### Prerequisites
 
-1. **MongoDB** (version 4.4+)
-2. **Redis** (version 6.0+)
-3. **Python Dependencies**:
+1. **Python 3.8+** (SQLite is built-in)
+2. **Optional Dependencies**:
    ```bash
    pip install -r requirements-db.txt
    ```
 
-#### Installation Options
+#### Installation
 
-**Option 1: Local Installation (macOS)**
+**No external database setup required!** SQLite is built into Python.
+
 ```bash
-# Install MongoDB
-brew install mongodb-community
-brew services start mongodb-community
+# Install optional dependencies for password hashing
+pip install -r requirements-db.txt
 
-# Install Redis
-brew install redis
-brew services start redis
+# Database will be created automatically as textspace.db
 ```
-
-**Option 2: Docker Compose**
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  mongodb:
-    image: mongo:5.0
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: textspace
-      MONGO_INITDB_ROOT_PASSWORD: textspace123
-    volumes:
-      - mongodb_data:/data/db
-
-  redis:
-    image: redis:6.2-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-volumes:
-  mongodb_data:
-  redis_data:
-```
-
-Start with: `docker-compose up -d`
 
 #### Configuration
 
@@ -215,33 +183,12 @@ Create or edit `.env` file:
 # Backend Selection
 USE_DATABASE=true
 
-# MongoDB Configuration
-MONGODB_URL=mongodb://localhost:27017
-MONGODB_DATABASE=textspace
-
-# Redis Configuration
-REDIS_URL=redis://localhost:6379
-REDIS_DB=0
+# Database Configuration
+DATABASE_PATH=textspace.db
 
 # Security
 SECRET_KEY=your-secret-key-here-change-this
 PASSWORD_SALT_ROUNDS=12
-
-# Optional: MongoDB Authentication
-# MONGODB_USERNAME=textspace
-# MONGODB_PASSWORD=textspace123
-
-# Optional: Redis Authentication
-# REDIS_PASSWORD=your-redis-password
-```
-
-For Docker with authentication:
-```bash
-USE_DATABASE=true
-MONGODB_URL=mongodb://textspace:textspace123@localhost:27017
-MONGODB_DATABASE=textspace
-REDIS_URL=redis://localhost:6379
-SECRET_KEY=your-secret-key-here
 ```
 
 #### Migration from Flat Files
@@ -270,17 +217,12 @@ python server.py
 
 #### Database Collections
 
-**MongoDB Collections:**
+**SQLite Tables:**
 - `users`: User accounts and profiles
 - `rooms`: Room definitions and state
 - `items`: Item definitions and properties
 - `bots`: Bot configurations and inventory
-- `sessions`: Active user sessions (via Redis)
-
-**Redis Keys:**
-- `session:{session_id}`: User session data
-- `user:{username}:location`: Cached user location
-- `room:{room_id}:users`: Cached room occupancy
+- `sessions`: Active user sessions
 
 #### Authentication
 
@@ -382,20 +324,17 @@ save 60 10000
 
 **Database Connection Failed:**
 ```bash
-# Check if services are running
-brew services list | grep mongo
-brew services list | grep redis
+# Check if database file exists and is accessible
+ls -la textspace.db
 
-# Test connections
+# Test database connection
 python -c "
-import pymongo
-import redis
-client = pymongo.MongoClient('mongodb://localhost:27017')
-client.admin.command('ping')
-print('MongoDB: OK')
-r = redis.Redis(host='localhost', port=6379)
-r.ping()
-print('Redis: OK')
+from db import Database
+db = Database()
+if db.test_connection():
+    print('SQLite: OK')
+else:
+    print('SQLite: Failed')
 "
 ```
 

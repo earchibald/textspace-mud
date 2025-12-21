@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.3.6"
+VERSION = "1.4.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -438,6 +438,13 @@ class TextSpaceServer:
         @self.socketio.on('connect')
         def handle_connect():
             logger.info(f"Web client connected: {request.sid}")
+            # Check for stored username in cookies
+            stored_username = request.cookies.get('textspace_username')
+            if stored_username:
+                # Auto-login with stored username
+                handle_web_login({'username': stored_username})
+            else:
+                emit('message', {'text': '✅ Connected to server. Enter your username to begin.'})
         
         @self.socketio.on('disconnect')
         def handle_disconnect():
@@ -486,6 +493,11 @@ class TextSpaceServer:
             
             emit('login_response', {'success': True, 'admin': admin})
             emit('message', {'text': f'Welcome, {username}! Type "help" for commands.'})
+            
+            # Set username cookie for auto-login
+            from flask import make_response
+            response = make_response()
+            response.set_cookie('textspace_username', username, max_age=30*24*60*60)  # 30 days
             
             # Send initial room info with automatic look
             asyncio.create_task(self.send_web_room_info(username))
@@ -617,6 +629,10 @@ class TextSpaceServer:
             return self.get_help_text(web_user.admin)
         elif cmd == "version":
             return f"Text Space Server v{VERSION}"
+        elif cmd == "switchuser" and args:
+            # Switch to different user
+            new_username = args[0]
+            return self.handle_switch_user_web(web_user, new_username)
         elif cmd == "look":
             return self.get_room_description(web_user.room_id, username)
         elif cmd == "who":
@@ -740,6 +756,44 @@ class TextSpaceServer:
         self.send_web_room_info_sync(web_user.name)
         
         return self.get_room_description(target_room_id, web_user.name)
+    
+    def handle_switch_user_web(self, web_user, new_username):
+        """Handle user switching for web users"""
+        if not new_username:
+            return "Usage: switchuser <username>"
+        
+        # Remove from current room
+        if web_user.room_id in self.rooms:
+            self.rooms[web_user.room_id].users.discard(web_user.name)
+        
+        # Remove from users dict
+        if web_user.name in self.web_users:
+            del self.web_users[web_user.name]
+        
+        # Create new user
+        admin = new_username == "admin"
+        new_web_user = WebUser(
+            name=new_username,
+            session_id=web_user.session_id,
+            authenticated=True,
+            admin=admin
+        )
+        
+        # Load user data
+        user_data = self.load_user_from_backend_sync(new_username)
+        if user_data:
+            new_web_user.room_id = user_data.get('room_id', 'lobby')
+            new_web_user.inventory = user_data.get('inventory', [])
+        
+        # Update session
+        self.web_users[new_username] = new_web_user
+        self.web_sessions[web_user.session_id] = new_username
+        
+        # Add to room
+        if new_web_user.room_id in self.rooms:
+            self.rooms[new_web_user.room_id].users.add(new_username)
+        
+        return f"Switched to user: {new_username}. " + self.get_room_description(new_web_user.room_id, new_username)
     
     def send_web_room_info_sync(self, username):
         """Send room info to web user synchronously"""
@@ -1193,6 +1247,7 @@ Available commands:
   use <item> - Use an item
   help (h) - Show this help
   version (v) - Show server version
+  switchuser <name> - Switch to different user
   quit - Disconnect
 """
         

@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 # Try to import database modules (optional)
 try:
@@ -493,8 +493,15 @@ class TextSpaceServer:
         @self.socketio.on('command')
         def handle_web_command(data):
             if request.sid not in self.web_sessions:
-                emit('message', {'text': 'Not logged in'})
-                return
+                # Check if this might be a login attempt
+                command = data.get('command', '').strip()
+                if command and not any(c in command for c in [' ', '\t']):
+                    # Treat single word as login attempt
+                    handle_web_login({'username': command})
+                    return
+                else:
+                    emit('message', {'text': 'Not logged in'})
+                    return
             
             username = self.web_sessions[request.sid]
             command = data.get('command', '').strip()

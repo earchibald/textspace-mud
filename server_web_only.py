@@ -616,6 +616,110 @@ Admin commands:
         self.send_to_all(broadcast_message, exclude_user=web_user.name)
         return f"Broadcast sent: {message}"
     
+    def handle_get_item(self, web_user, item_name):
+        """Handle getting an item"""
+        room = self.rooms.get(web_user.room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        # Find item in room
+        item_id = None
+        for room_item_id in room.items:
+            if room_item_id in self.items:
+                item = self.items[room_item_id]
+                if item.name.lower() == item_name.lower():
+                    item_id = room_item_id
+                    break
+        
+        if not item_id:
+            return f"There is no '{item_name}' here."
+        
+        # Move item from room to inventory
+        room.items.remove(item_id)
+        web_user.inventory.append(item_id)
+        
+        # Save user data
+        self.save_user_data(web_user)
+        
+        # Notify room
+        item = self.items[item_id]
+        self.send_to_room(web_user.room_id, f"{web_user.name} picks up {item.name}.", exclude_user=web_user.name)
+        
+        return f"You pick up {item.name}."
+    
+    def handle_drop_item(self, web_user, item_name):
+        """Handle dropping an item"""
+        # Find item in inventory
+        item_id = None
+        for inv_item_id in web_user.inventory:
+            if inv_item_id in self.items:
+                item = self.items[inv_item_id]
+                if item.name.lower() == item_name.lower():
+                    item_id = inv_item_id
+                    break
+        
+        if not item_id:
+            return f"You don't have '{item_name}'."
+        
+        # Move item from inventory to room
+        web_user.inventory.remove(item_id)
+        room = self.rooms.get(web_user.room_id)
+        if room:
+            room.items.append(item_id)
+        
+        # Save user data
+        self.save_user_data(web_user)
+        
+        # Notify room
+        item = self.items[item_id]
+        self.send_to_room(web_user.room_id, f"{web_user.name} drops {item.name}.", exclude_user=web_user.name)
+        
+        return f"You drop {item.name}."
+    
+    def handle_examine_item(self, web_user, item_name):
+        """Handle examining an item"""
+        # Check inventory first
+        for item_id in web_user.inventory:
+            if item_id in self.items:
+                item = self.items[item_id]
+                if item.name.lower() == item_name.lower():
+                    return f"{item.name}: {item.description}"
+        
+        # Check room items
+        room = self.rooms.get(web_user.room_id)
+        if room:
+            for item_id in room.items:
+                if item_id in self.items:
+                    item = self.items[item_id]
+                    if item.name.lower() == item_name.lower():
+                        return f"{item.name}: {item.description}"
+        
+        return f"You don't see '{item_name}' here."
+    
+    def handle_use_item(self, web_user, item_name):
+        """Handle using an item"""
+        # Find item in inventory
+        for item_id in web_user.inventory:
+            if item_id in self.items:
+                item = self.items[item_id]
+                if item.name.lower() == item_name.lower():
+                    if item.script:
+                        # Execute item script
+                        try:
+                            result = self.script_engine.execute_script(item.script, {
+                                'user': web_user.name,
+                                'room': web_user.room_id,
+                                'item': item_id
+                            })
+                            return result if result else f"You use {item.name}."
+                        except Exception as e:
+                            logger.error(f"Script error: {e}")
+                            return f"You use {item.name}."
+                    else:
+                        return f"You use {item.name}."
+        
+        return f"You don't have '{item_name}'."
+
     def send_to_room(self, room_id, message, exclude_user=None):
         """Send message to all users in a room"""
         if room_id not in self.rooms:

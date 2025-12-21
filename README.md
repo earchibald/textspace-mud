@@ -94,12 +94,17 @@ The system provides seamless migration from flat files to database:
 
 ### Data Models
 
+The system uses a flexible data model that works with both flat files and databases:
+
 #### User
 - `name`: Username (unique)
 - `room_id`: Current room location
 - `inventory`: List of item IDs
 - `admin`: Admin privilege flag
-- `writer`: Network connection
+- `password_hash`: Encrypted password (database mode only)
+- `session_id`: Active session identifier (database mode only)
+- `last_seen`: Last activity timestamp (database mode only)
+- `created_at`: Account creation date (database mode only)
 
 #### Room
 - `id`: Unique room identifier
@@ -131,6 +136,304 @@ The system provides seamless migration from flat files to database:
 - `room_id`: Room where event occurred
 - `user_name`: User who triggered event
 - `data`: Additional event data
+
+## Database Backend
+
+### Overview
+
+The system supports two storage backends that can be switched seamlessly:
+
+**Flat File Backend (Default)**
+- YAML files for configuration (rooms, bots, items, scripts)
+- JSON file for user data
+- No external dependencies
+- Perfect for development and small deployments
+
+**Database Backend (Production)**
+- MongoDB for document storage
+- Redis for caching and sessions
+- Scalable for production use
+- Supports multiple server instances
+
+### Database Setup
+
+#### Prerequisites
+
+1. **MongoDB** (version 4.4+)
+2. **Redis** (version 6.0+)
+3. **Python Dependencies**:
+   ```bash
+   pip install -r requirements-db.txt
+   ```
+
+#### Installation Options
+
+**Option 1: Local Installation (macOS)**
+```bash
+# Install MongoDB
+brew install mongodb-community
+brew services start mongodb-community
+
+# Install Redis
+brew install redis
+brew services start redis
+```
+
+**Option 2: Docker Compose**
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  mongodb:
+    image: mongo:5.0
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: textspace
+      MONGO_INITDB_ROOT_PASSWORD: textspace123
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:6.2-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mongodb_data:
+  redis_data:
+```
+
+Start with: `docker-compose up -d`
+
+#### Configuration
+
+Create or edit `.env` file:
+```bash
+# Backend Selection
+USE_DATABASE=true
+
+# MongoDB Configuration
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DATABASE=textspace
+
+# Redis Configuration
+REDIS_URL=redis://localhost:6379
+REDIS_DB=0
+
+# Security
+SECRET_KEY=your-secret-key-here-change-this
+PASSWORD_SALT_ROUNDS=12
+
+# Optional: MongoDB Authentication
+# MONGODB_USERNAME=textspace
+# MONGODB_PASSWORD=textspace123
+
+# Optional: Redis Authentication
+# REDIS_PASSWORD=your-redis-password
+```
+
+For Docker with authentication:
+```bash
+USE_DATABASE=true
+MONGODB_URL=mongodb://textspace:textspace123@localhost:27017
+MONGODB_DATABASE=textspace
+REDIS_URL=redis://localhost:6379
+SECRET_KEY=your-secret-key-here
+```
+
+#### Migration from Flat Files
+
+The system provides tools to migrate existing data to the database:
+
+```bash
+# 1. Backup current data (automatic)
+python migrate_v2.py migrate
+
+# 2. Verify migration
+python migrate_v2.py verify
+
+# 3. Update configuration
+echo "USE_DATABASE=true" >> .env
+
+# 4. Start server with database
+python server.py
+```
+
+**Migration Features:**
+- Automatic backup creation
+- Data integrity verification
+- Zero-downtime parallel operation
+- Rollback support
+
+#### Database Collections
+
+**MongoDB Collections:**
+- `users`: User accounts and profiles
+- `rooms`: Room definitions and state
+- `items`: Item definitions and properties
+- `bots`: Bot configurations and inventory
+- `sessions`: Active user sessions (via Redis)
+
+**Redis Keys:**
+- `session:{session_id}`: User session data
+- `user:{username}:location`: Cached user location
+- `room:{room_id}:users`: Cached room occupancy
+
+#### Authentication
+
+**Flat File Mode:**
+- Simple username-based authentication
+- Admin status by username ("admin" = admin)
+- No passwords required
+
+**Database Mode:**
+- Secure password hashing with bcrypt
+- Session management with Redis
+- Rate limiting for login attempts
+- Default passwords: `{username}123` (users should change)
+
+**Password Management:**
+```bash
+# Create user with password
+python admin_tool.py create username --password mypassword
+
+# Promote to admin
+python admin_tool.py promote username
+```
+
+### Database Operations
+
+#### Backup and Restore
+
+```bash
+# Create backup
+python backup_tool.py create
+
+# List backups
+python backup_tool.py list
+
+# Restore from backup
+python backup_tool.py restore backup_file.tar.gz
+```
+
+#### Health Monitoring
+
+```bash
+# Check database connectivity
+python monitor.py --database
+
+# Continuous monitoring
+python monitor.py --monitor --interval 60
+```
+
+#### Performance Optimization
+
+**MongoDB Indexes:**
+```javascript
+// Connect to MongoDB shell
+use textspace
+
+// Create indexes
+db.users.createIndex({ "name": 1 }, { unique: true })
+db.users.createIndex({ "last_seen": -1 })
+db.rooms.createIndex({ "_id": 1 })
+db.items.createIndex({ "_id": 1 })
+db.items.createIndex({ "tags": 1 })
+```
+
+**Redis Configuration:**
+```bash
+# Add to redis.conf for persistence
+save 900 1
+save 300 10
+save 60 10000
+```
+
+### Deployment Strategies
+
+#### Strategy 1: Direct Migration (Simple)
+1. Stop server
+2. Run migration
+3. Update .env
+4. Start server with database
+
+**Downtime:** ~5 minutes
+
+#### Strategy 2: Parallel Operation (Zero Downtime)
+1. Set up database alongside flat files
+2. Run parallel sync: `python migrate_v2.py sync`
+3. Switch to database mode
+4. Decommission flat files
+
+**Downtime:** None
+
+#### Strategy 3: Blue-Green Deployment
+1. Set up new environment with database
+2. Migrate data
+3. Switch traffic
+4. Keep old environment for rollback
+
+**Downtime:** Minimal (DNS switch)
+
+### Troubleshooting
+
+**Database Connection Failed:**
+```bash
+# Check if services are running
+brew services list | grep mongo
+brew services list | grep redis
+
+# Test connections
+python -c "
+import pymongo
+import redis
+client = pymongo.MongoClient('mongodb://localhost:27017')
+client.admin.command('ping')
+print('MongoDB: OK')
+r = redis.Redis(host='localhost', port=6379)
+r.ping()
+print('Redis: OK')
+"
+```
+
+**Migration Issues:**
+```bash
+# Verify data integrity
+python migrate_v2.py verify
+
+# Check logs
+tail -f textspace.log
+```
+
+**Performance Issues:**
+```bash
+# Check database stats
+python admin_tool.py info --database
+
+# Monitor system resources
+python monitor.py
+```
+
+### Rollback to Flat Files
+
+If needed, you can rollback to flat file mode:
+
+```bash
+# 1. Stop server
+# 2. Update .env
+echo "USE_DATABASE=false" > .env
+
+# 3. Restore from backup (if needed)
+python backup_tool.py restore backup_file.tar.gz
+
+# 4. Start server
+python server.py
+```
+
+For complete deployment guide, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Quick Start
 

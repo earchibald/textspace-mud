@@ -1,0 +1,61 @@
+name: Feature Testing Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 9 AM UTC
+    - cron: '0 9 * * *'
+
+jobs:
+  test-features:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-db.txt
+        pip install python-socketio[client]
+    
+    - name: Run Feature Test Suite
+      run: |
+        python test_features.py
+      env:
+        TEST_URL: https://exciting-liberation-production.up.railway.app
+    
+    - name: Run Web Client Tests
+      run: |
+        python test_web_client.py
+      env:
+        TEST_URL: https://exciting-liberation-production.up.railway.app
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          *.log
+          test_results.json
+        retention-days: 30
+
+  deploy-notification:
+    needs: test-features
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Notify deployment success
+      run: |
+        echo "✅ All tests passed - deployment ready"
+        echo "🚀 Railway will auto-deploy from main branch"

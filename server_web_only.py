@@ -177,7 +177,7 @@ class TextSpaceServer:
         @self.socketio.on('connect')
         def handle_connect():
             logger.info(f"Web client connected: {request.sid}")
-            emit('message', {'text': '✅ Connected to server. Enter your username to begin.'})
+            emit('message', {'text': f'✅ Connected to {SERVER_NAME} v{VERSION}. Enter your username to begin.'})
         
         @self.socketio.on('disconnect')
         def handle_disconnect():

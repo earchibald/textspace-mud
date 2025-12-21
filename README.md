@@ -163,14 +163,12 @@ The system supports two backends:
 **Flat File Mode (Default):**
 ```bash
 python server.py
-# or
-python server_v2.py  # Enhanced version with database support
 ```
 
 **Database Mode:**
 ```bash
 # Set up .env file first (see DEPLOYMENT.md)
-USE_DATABASE=true python server_v2.py
+USE_DATABASE=true python server.py
 ```
 
 **Server runs on:**
@@ -237,8 +235,7 @@ python client.py
 
 ```
 006-mats/
-├── server.py              # Original unified server (flat files only)
-├── server_v2.py           # Enhanced server (flat files + database)
+├── server.py              # Main server (flat files + database support)
 ├── client.py              # Terminal client
 ├── script_engine.py       # Scripting language engine
 ├── database.py            # Database layer (MongoDB + Redis)

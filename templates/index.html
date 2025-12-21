@@ -194,8 +194,15 @@
             output.scrollTop = output.scrollHeight;
         }
 
-        // Auto-focus input on page load
-        document.getElementById('input').focus();
+        // Auto-focus input when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('input').focus();
+        });
+
+        // Also focus on window load (backup)
+        window.addEventListener('load', () => {
+            document.getElementById('input').focus();
+        });
 
         // Re-focus input after any interaction
         document.addEventListener('click', () => {

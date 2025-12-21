@@ -41,12 +41,30 @@
             border: none;
             cursor: pointer;
             font-family: monospace;
+            transition: background-color 0.3s;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
         }
         .message { margin: 5px 0; }
+        .status-bar {
+            background: #333;
+            padding: 5px 10px;
+            margin-bottom: 10px;
+            border: 1px solid #00ff00;
+            font-size: 12px;
+        }
+        .status-online { color: #00ff00; }
+        .status-offline { color: #ff0000; }
+        .status-connecting { color: #ffff00; }
     </style>
 </head>
 <body>
     <h1>Text Space</h1>
+    <div class="status-bar">
+        <span id="connection-status" class="status-connecting">🔄 Connecting to server...</span>
+    </div>
     <div id="room-info">
         <div id="room-name"></div>
         <div id="room-desc"></div>
@@ -54,16 +72,72 @@
         <div id="room-users"></div>
     </div>
     <div id="output"></div>
-    <input type="text" id="input" placeholder="Enter command..." autofocus>
-    <button onclick="sendCommand()">Send</button>
+    <input type="text" id="input" placeholder="Connecting..." autofocus disabled>
+    <button onclick="sendCommand()" disabled>Connecting</button>
 
     <script>
         const socket = io();
         let loggedIn = false;
+        let connectionStatus = 'connecting';
 
         socket.on('connect', () => {
-            addMessage('Connected to server. Enter your username to begin.');
+            connectionStatus = 'connected';
+            addMessage('✅ Connected to server. Enter your username to begin.');
+            updateConnectionStatus();
         });
+
+        socket.on('disconnect', () => {
+            connectionStatus = 'disconnected';
+            addMessage('❌ Disconnected from server. Attempting to reconnect...');
+            updateConnectionStatus();
+        });
+
+        socket.on('connect_error', () => {
+            connectionStatus = 'error';
+            addMessage('🔴 Cannot connect to server. The service may be offline.');
+            updateConnectionStatus();
+        });
+
+        socket.on('reconnect', () => {
+            connectionStatus = 'connected';
+            addMessage('✅ Reconnected to server!');
+            updateConnectionStatus();
+        });
+
+        socket.on('reconnect_failed', () => {
+            connectionStatus = 'offline';
+            addMessage('🔴 Server is offline. Please try again later.');
+            updateConnectionStatus();
+        });
+
+        function updateConnectionStatus() {
+            const input = document.getElementById('input');
+            const button = document.querySelector('button');
+            const statusElement = document.getElementById('connection-status');
+            
+            if (connectionStatus === 'connected') {
+                input.disabled = false;
+                button.disabled = false;
+                button.textContent = 'Send';
+                button.style.backgroundColor = '#00ff00';
+                statusElement.textContent = '✅ Connected to server';
+                statusElement.className = 'status-online';
+            } else if (connectionStatus === 'connecting') {
+                input.disabled = true;
+                button.disabled = true;
+                button.textContent = 'Connecting';
+                button.style.backgroundColor = '#666';
+                statusElement.textContent = '🔄 Connecting to server...';
+                statusElement.className = 'status-connecting';
+            } else {
+                input.disabled = true;
+                button.disabled = true;
+                button.textContent = 'Offline';
+                button.style.backgroundColor = '#666';
+                statusElement.textContent = '🔴 Server offline - service may be paused';
+                statusElement.className = 'status-offline';
+            }
+        }
 
         socket.on('login_response', (data) => {
             if (data.success) {
@@ -107,6 +181,14 @@
             const msg = document.createElement('div');
             msg.className = 'message';
             msg.style.whiteSpace = 'pre-wrap'; // Preserve line breaks
+            
+            // Add timestamp and styling for system messages
+            if (text.startsWith('✅') || text.startsWith('❌') || text.startsWith('🔴')) {
+                msg.style.color = '#ffff00';
+                msg.style.fontWeight = 'bold';
+                text = `[${new Date().toLocaleTimeString()}] ${text}`;
+            }
+            
             msg.textContent = text;
             output.appendChild(msg);
             output.scrollTop = output.scrollHeight;
@@ -115,7 +197,7 @@
         function sendCommand() {
             const input = document.getElementById('input');
             const command = input.value.trim();
-            if (!command) return;
+            if (!command || connectionStatus !== 'connected') return;
 
             addMessage('> ' + command);
 
@@ -132,15 +214,20 @@
             if (e.key === 'Enter') sendCommand();
         });
 
-        // Update placeholder based on login status
+        // Update placeholder based on connection and login status
         setInterval(() => {
             const input = document.getElementById('input');
-            if (!loggedIn) {
+            if (connectionStatus !== 'connected') {
+                input.placeholder = 'Server offline - please wait...';
+            } else if (!loggedIn) {
                 input.placeholder = 'Enter your username...';
             } else {
                 input.placeholder = 'Enter command (type "help" for commands)...';
             }
         }, 1000);
+
+        // Initial connection status update
+        updateConnectionStatus();
     </script>
 </body>
 </html>

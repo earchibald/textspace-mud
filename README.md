@@ -153,7 +153,7 @@ The system supports two storage backends that can be switched seamlessly:
 - SQLite for document storage (single file database)
 - Scalable for production use
 - No external dependencies (SQLite built into Python)
-- Supports multiple server instances with file locking
+- Supports concurrent access with file locking
 
 ### Database Setup
 
@@ -197,16 +197,16 @@ The system provides tools to migrate existing data to the database:
 
 ```bash
 # 1. Backup current data (automatic)
-python migrate_v2.py migrate
+./migrate_v2.py migrate
 
 # 2. Verify migration
-python migrate_v2.py verify
+./migrate_v2.py verify
 
 # 3. Update configuration
 echo "USE_DATABASE=true" >> .env
 
 # 4. Start server with database
-python server.py
+./server.py
 ```
 
 **Migration Features:**
@@ -240,10 +240,10 @@ python server.py
 **Password Management:**
 ```bash
 # Create user with password
-python admin_tool.py create username --password mypassword
+./admin_tool.py create username --password mypassword
 
 # Promote to admin
-python admin_tool.py promote username
+./admin_tool.py promote username
 ```
 
 ### Database Operations
@@ -252,23 +252,23 @@ python admin_tool.py promote username
 
 ```bash
 # Create backup
-python backup_tool.py create
+./backup_tool.py create
 
 # List backups
-python backup_tool.py list
+./backup_tool.py list
 
 # Restore from backup
-python backup_tool.py restore backup_file.tar.gz
+./backup_tool.py restore backup_file.tar.gz
 ```
 
 #### Health Monitoring
 
 ```bash
 # Check database connectivity
-python monitor.py --database
+./monitor.py --database
 
 # Continuous monitoring
-python monitor.py --monitor --interval 60
+./monitor.py --monitor --interval 60
 ```
 
 #### Performance Optimization
@@ -341,7 +341,7 @@ else:
 **Migration Issues:**
 ```bash
 # Verify data integrity
-python migrate_v2.py verify
+./migrate_v2.py verify
 
 # Check logs
 tail -f textspace.log
@@ -350,10 +350,10 @@ tail -f textspace.log
 **Performance Issues:**
 ```bash
 # Check database stats
-python admin_tool.py info --database
+./admin_tool.py info --database
 
 # Monitor system resources
-python monitor.py
+./monitor.py
 ```
 
 ### Rollback to Flat Files
@@ -366,10 +366,10 @@ If needed, you can rollback to flat file mode:
 echo "USE_DATABASE=false" > .env
 
 # 3. Restore from backup (if needed)
-python backup_tool.py restore backup_file.tar.gz
+./backup_tool.py restore backup_file.tar.gz
 
 # 4. Start server
-python server.py
+./server.py
 ```
 
 For complete deployment guide, see [DEPLOYMENT.md](DEPLOYMENT.md).
@@ -379,11 +379,11 @@ For complete deployment guide, see [DEPLOYMENT.md](DEPLOYMENT.md).
 ### Installation
 
 ```bash
-# Install basic dependencies
+# Install core dependencies
 pip install -r requirements.txt
 
 # For database backend (optional)
-pip install pymongo redis bcrypt python-dotenv
+pip install -r requirements-db.txt
 ```
 
 ### Backend Selection
@@ -396,9 +396,9 @@ The system supports two backends:
 - Perfect for development and small deployments
 
 **Database Backend (Production):**
-- Requires MongoDB and Redis
+- Requires SQLite (built into Python)
 - Scalable for production use
-- See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions
+- See [Database Setup](#database-backend) for configuration
 
 ### Starting the Server
 
@@ -409,7 +409,7 @@ python server.py
 
 **Database Mode:**
 ```bash
-# Set up .env file first (see DEPLOYMENT.md)
+# Set up .env file first (see Database Backend section)
 USE_DATABASE=true python server.py
 ```
 
@@ -477,24 +477,27 @@ python client.py
 
 ```
 006-mats/
-├── server.py              # Main server (flat files + database support)
+├── server.py              # Main server (flat files + SQLite support)
 ├── client.py              # Terminal client
 ├── script_engine.py       # Scripting language engine
-├── database.py            # Database layer (MongoDB + Redis)
-├── auth.py                # Authentication system
-├── migrate.py             # Original migration tool
-├── migrate_v2.py          # Enhanced migration tool
+├── db/                    # Database module
+│   ├── __init__.py        # Database interface
+│   ├── models.py          # Data models
+│   ├── sqlite_backend.py  # SQLite implementation
+│   └── README.md          # Database documentation
 ├── setup.py               # Setup and management script
 ├── admin_tool.py          # Admin management tool
 ├── monitor.py             # Health monitoring tool
 ├── backup_tool.py         # Backup and restore tool
 ├── test_suite.py          # Comprehensive test suite
+├── migrate_v2.py          # Database migration tool
 ├── rooms.yaml             # Room definitions
 ├── bots.yaml              # Bot configurations
 ├── items.yaml             # Item definitions
 ├── scripts.yaml           # Bot scripts
-├── users.json             # Persistent user data (auto-generated)
-├── .env                   # Environment configuration (create from .env.example)
+├── users.json             # Persistent user data (flat file mode)
+├── textspace.db           # SQLite database (database mode)
+├── .env                   # Environment configuration
 ├── .env.example           # Environment template
 ├── templates/
 │   └── index.html         # Web interface template
@@ -747,84 +750,84 @@ The system includes comprehensive management tools for setup, administration, an
 Automated setup and configuration:
 ```bash
 # Set up flat file mode (simple)
-python setup.py setup-flat
+./setup.py setup-flat
 
 # Set up database mode (production)
-python setup.py setup-db
+./setup.py setup-db
 
 # Check system status
-python setup.py status
+./setup.py status
 
 # Run test suite
-python setup.py test
+./setup.py test
 
 # Auto-start server
-python setup.py start
+./setup.py start
 ```
 
 #### Admin Tool (`admin_tool.py`)
 User and system administration:
 ```bash
 # List all users
-python admin_tool.py list
+./admin_tool.py list
 
 # Promote user to admin
-python admin_tool.py promote username
+./admin_tool.py promote username
 
 # Create new user
-python admin_tool.py create username --admin
+./admin_tool.py create username --admin
 
 # Reset user location
-python admin_tool.py reset-location username --room lobby
+./admin_tool.py reset-location username --room lobby
 
 # Show system information
-python admin_tool.py info
+./admin_tool.py info
 ```
 
 #### Migration Tool (`migrate_v2.py`)
 Database migration and sync:
 ```bash
 # Migrate from flat files to database
-python migrate_v2.py migrate
+./migrate_v2.py migrate
 
 # Run parallel sync (zero downtime)
-python migrate_v2.py sync
+./migrate_v2.py sync
 
 # Verify migration integrity
-python migrate_v2.py verify
+./migrate_v2.py verify
 ```
 
 #### Monitoring Tool (`monitor.py`)
 Health checks and monitoring:
 ```bash
 # Run health check
-python monitor.py
+./monitor.py
 
 # Continuous monitoring
-python monitor.py --monitor --interval 60
+./monitor.py --monitor --interval 60
 
 # Database mode monitoring
-python monitor.py --database
+./monitor.py --database
 ```
 
 #### Backup Tool (`backup_tool.py`)
 Data backup and restore:
 ```bash
 # Create backup
-python backup_tool.py create
+./backup_tool.py create
 
 # List available backups
-python backup_tool.py list
+./backup_tool.py list
 
 # Restore from backup
-python backup_tool.py restore backup_file.tar.gz
+./backup_tool.py restore backup_file.tar.gz
 ```
 
 #### Test Suite (`test_suite.py`)
 Comprehensive testing:
 ```bash
 # Run all tests
-python test_suite.py
+./test_suite.py
 
 # Tests include:
 # - Unit tests for core components

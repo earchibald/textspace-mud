@@ -1174,7 +1174,7 @@ Admin commands:
         
         # Start web server in a separate thread
         def run_web_server():
-            self.socketio.run(self.app, host=host, port=web_port, debug=False, use_reloader=False)
+            self.socketio.run(self.app, host=host, port=web_port, debug=False, use_reloader=False, allow_unsafe_werkzeug=True)
         
         web_thread = threading.Thread(target=run_web_server, daemon=True)
         web_thread.start()

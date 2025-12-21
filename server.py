@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -653,6 +653,9 @@ class TextSpaceServer:
         elif cmd == "script" and web_user.admin and args:
             script_name = args[0]
             return self.handle_execute_script_web(web_user, script_name)
+        elif cmd == "kick" and web_user.admin and args:
+            target_user = args[0]
+            return self.handle_kick_user_web(web_user, target_user)
         else:
             return f"Unknown command: {cmd}. Type 'help' for available commands."
     
@@ -787,6 +790,52 @@ class TextSpaceServer:
             self.rooms[new_web_user.room_id].users.add(new_username)
         
         return f"Switched to user: {new_username}. " + self.get_room_description(new_web_user.room_id, new_username)
+    
+    async def handle_kick_user(self, admin_user, target_username):
+        """Handle kicking a user (TCP)"""
+        if target_username == admin_user.name:
+            return "You cannot kick yourself."
+        
+        # Check TCP users
+        if target_username in self.users:
+            target_user = self.users[target_username]
+            await self.send_message(target_user.writer, "You have been disconnected by an administrator.")
+            target_user.writer.close()
+            await target_user.writer.wait_closed()
+            return f"Kicked TCP user: {target_username}"
+        
+        # Check web users
+        if target_username in self.web_users:
+            web_user = self.web_users[target_username]
+            from flask_socketio import emit, disconnect
+            emit('message', {'text': 'You have been disconnected by an administrator.'}, room=web_user.session_id)
+            disconnect(web_user.session_id)
+            return f"Kicked web user: {target_username}"
+        
+        return f"User '{target_username}' not found."
+    
+    def handle_kick_user_web(self, admin_user, target_username):
+        """Handle kicking a user (Web)"""
+        if target_username == admin_user.name:
+            return "You cannot kick yourself."
+        
+        # Check TCP users
+        if target_username in self.users:
+            target_user = self.users[target_username]
+            import asyncio
+            asyncio.create_task(self.send_message(target_user.writer, "You have been disconnected by an administrator."))
+            target_user.writer.close()
+            return f"Kicked TCP user: {target_username}"
+        
+        # Check web users
+        if target_username in self.web_users:
+            web_user = self.web_users[target_username]
+            from flask_socketio import emit, disconnect
+            emit('message', {'text': 'You have been disconnected by an administrator.'}, room=web_user.session_id)
+            disconnect(web_user.session_id)
+            return f"Kicked web user: {target_username}"
+        
+        return f"User '{target_username}' not found."
     
     def send_web_room_info_sync(self, username):
         """Send room info to web user synchronously"""
@@ -1217,6 +1266,9 @@ class TextSpaceServer:
         elif cmd == "script" and user.admin and args:
             script_name = args[0]
             return await self.handle_execute_script(user, script_name)
+        elif cmd == "kick" and user.admin and args:
+            target_user = args[0]
+            return await self.handle_kick_user(user, target_user)
         
         # Check for bot responses
         await self.check_bot_responses(user.room_id, command)
@@ -1250,6 +1302,7 @@ Admin commands:
   teleport [room] - Jump to room (no args lists rooms)
   broadcast <message> - Send message to all users
   script <name> - Execute a bot script
+  kick <user> - Disconnect a user
 """
         
         return help_text.strip()

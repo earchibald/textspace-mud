@@ -16,6 +16,9 @@ from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
+# Version tracking
+VERSION = "1.1.0"
+
 # Try to import database modules (optional)
 try:
     from db import Database, User as DBUser, Room as DBRoom, Item as DBItem, Bot as DBBot
@@ -598,6 +601,8 @@ class TextSpaceServer:
         
         if cmd == "help":
             return self.get_help_text(web_user.admin)
+        elif cmd == "version":
+            return f"Text Space Server v{VERSION}"
         elif cmd == "look":
             return self.get_room_description(web_user.room_id, username)
         elif cmd == "who":
@@ -1077,6 +1082,8 @@ class TextSpaceServer:
         # Basic commands
         if cmd == "help":
             return self.get_help_text(user.admin)
+        elif cmd == "version":
+            return f"Text Space Server v{VERSION}"
         elif cmd == "look":
             await self.show_room(user)
             return None
@@ -1093,6 +1100,8 @@ class TextSpaceServer:
         # Movement commands
         elif cmd in ["go", "move"] and args:
             return await self.move_user(user, args[0])
+        elif cmd in ["north", "south", "east", "west"]:
+            return await self.move_user(user, cmd)
         elif cmd in self.rooms.get(user.room_id, Room("", "", "", {})).exits:
             return await self.move_user(user, cmd)
         
@@ -1153,6 +1162,7 @@ Available commands:
   examine <item> - Look at an item closely
   use <item> - Use an item
   help (h) - Show this help
+  version - Show server version
   quit - Disconnect
 """
         

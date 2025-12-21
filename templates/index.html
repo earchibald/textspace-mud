@@ -44,7 +44,17 @@
         }
         #room-users {
             color: #ff00ff;
-            font-size: 0.85em;
+            font-size: 0.9em;
+            margin: 0;
+        }
+        #room-bots {
+            color: #ffa500;
+            font-size: 0.9em;
+            margin: 0;
+        }
+        #room-items {
+            color: #90ee90;
+            font-size: 0.9em;
             margin: 0;
         }
         #input {
@@ -267,12 +277,12 @@
                     document.getElementById('room-desc').textContent = description;
                     document.getElementById('room-exits').textContent = exits;
                     
-                    // Combine users, bots, and items
-                    let presence = [];
-                    if (users) presence.push(users);
-                    if (bots) presence.push(bots);
-                    if (items) presence.push(items);
-                    document.getElementById('room-users').textContent = presence.join('\n');
+                    // Display users, bots, and items on separate lines
+                    let presenceHtml = '';
+                    if (users) presenceHtml += `<div id="room-users">${users}</div>`;
+                    if (bots) presenceHtml += `<div id="room-bots">${bots}</div>`;
+                    if (items) presenceHtml += `<div id="room-items">${items}</div>`;
+                    document.getElementById('room-users').innerHTML = presenceHtml;
                 }
             }
         }

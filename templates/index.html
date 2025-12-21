@@ -193,6 +193,7 @@
             msg.className = 'message';
             msg.style.whiteSpace = 'pre-wrap'; // Preserve line breaks
             msg.style.wordWrap = 'break-word'; // Fix Chrome word wrapping
+            msg.style.overflowWrap = 'break-word'; // Chrome compatibility
             
             // Add timestamp and styling for system messages
             if (text.startsWith('✅') || text.startsWith('❌') || text.startsWith('🔴')) {

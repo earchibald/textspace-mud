@@ -420,27 +420,29 @@ Admin commands:
         if not room:
             return "You are in an unknown location."
         
-        message = f"{room.name}\n{room.description}\n"
+        lines = []
+        lines.append(room.name)
+        lines.append(room.description)
         
         if room.exits:
             exits = ", ".join(room.exits.keys())
-            message += f"Exits: {exits}\n"
+            lines.append(f"Exits: {exits}")
         
         other_users = [u for u in room.users if u != username]
         if other_users:
-            message += f"Users here: {', '.join(other_users)}\n"
+            lines.append(f"Users here: {', '.join(other_users)}")
         
         bots_here = [bot.name for bot in self.bots.values() 
                     if bot.room_id == room_id and bot.visible]
         if bots_here:
-            message += f"Bots here: {', '.join(bots_here)}\n"
+            lines.append(f"Bots here: {', '.join(bots_here)}")
         
         items_here = [self.items[item_id].name for item_id in room.items 
                      if item_id in self.items]
         if items_here:
-            message += f"Items here: {', '.join(items_here)}"
+            lines.append(f"Items here: {', '.join(items_here)}")
         
-        return message.strip()
+        return "\n".join(lines)
     
     def get_who_list(self):
         """Get list of online users"""

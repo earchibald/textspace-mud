@@ -315,6 +315,12 @@ class TextSpaceServer:
         elif cmd == "use" and args:
             item_name = " ".join(args)
             return self.handle_use_item(web_user, item_name)
+        elif cmd == "open" and args:
+            item_name = " ".join(args)
+            return self.handle_open_item(web_user, item_name)
+        elif cmd == "close" and args:
+            item_name = " ".join(args)
+            return self.handle_close_item(web_user, item_name)
         elif cmd in ["go", "move"] and args:
             direction = args[0]
             return self.move_user(web_user, direction)
@@ -399,6 +405,8 @@ Available commands:
   drop <item> - Drop an item
   examine <item> - Look at an item closely
   use <item> - Use an item
+  open <item> - Open a container
+  close <item> - Close a container
   help (h) - Show this help
   version (v) - Show server version
 """
@@ -622,12 +630,31 @@ Admin commands:
         if not room:
             return "You are in an unknown location."
         
+        # Check for items in open containers first
+        for room_item_id in room.items:
+            if room_item_id in self.items:
+                container = self.items[room_item_id]
+                if container.is_container and hasattr(container, 'is_open') and container.is_open:
+                    for content_id in container.contents:
+                        if content_id in self.items:
+                            item = self.items[content_id]
+                            if item.name.lower() == item_name.lower():
+                                # Move item from container to inventory
+                                container.contents.remove(content_id)
+                                web_user.inventory.append(content_id)
+                                self.save_user_data(web_user)
+                                self.send_to_room(web_user.room_id, f"{web_user.name} takes {item.name} from {container.name}.", exclude_user=web_user.name)
+                                return f"You take {item.name} from {container.name}."
+        
         # Find item in room
         item_id = None
         for room_item_id in room.items:
             if room_item_id in self.items:
                 item = self.items[room_item_id]
                 if item.name.lower() == item_name.lower():
+                    # Check if item is immovable
+                    if "immovable" in item.tags:
+                        return f"The {item.name} is too heavy to move."
                     item_id = room_item_id
                     break
         
@@ -719,6 +746,60 @@ Admin commands:
                         return f"You use {item.name}."
         
         return f"You don't have '{item_name}'."
+
+    def handle_open_item(self, web_user, item_name):
+        """Handle opening a container"""
+        room = self.rooms.get(web_user.room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        # Find container in room
+        for item_id in room.items:
+            if item_id in self.items:
+                item = self.items[item_id]
+                if item.name.lower() == item_name.lower():
+                    if not item.is_container:
+                        return f"You can't open {item.name}."
+                    
+                    if hasattr(item, 'is_open') and item.is_open:
+                        return f"The {item.name} is already open."
+                    
+                    # Open the container
+                    item.is_open = True
+                    self.send_to_room(web_user.room_id, f"{web_user.name} opens {item.name}.", exclude_user=web_user.name)
+                    
+                    # Show contents
+                    if item.contents:
+                        contents = [self.items[content_id].name for content_id in item.contents if content_id in self.items]
+                        return f"You open {item.name}. Inside you see: {', '.join(contents)}."
+                    else:
+                        return f"You open {item.name}. It is empty."
+        
+        return f"You don't see '{item_name}' here."
+    
+    def handle_close_item(self, web_user, item_name):
+        """Handle closing a container"""
+        room = self.rooms.get(web_user.room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        # Find container in room
+        for item_id in room.items:
+            if item_id in self.items:
+                item = self.items[item_id]
+                if item.name.lower() == item_name.lower():
+                    if not item.is_container:
+                        return f"You can't close {item.name}."
+                    
+                    if not hasattr(item, 'is_open') or not item.is_open:
+                        return f"The {item.name} is already closed."
+                    
+                    # Close the container
+                    item.is_open = False
+                    self.send_to_room(web_user.room_id, f"{web_user.name} closes {item.name}.", exclude_user=web_user.name)
+                    return f"You close {item.name}."
+        
+        return f"You don't see '{item_name}' here."
 
     def send_to_room(self, room_id, message, exclude_user=None):
         """Send message to all users in a room"""

@@ -8,9 +8,20 @@ items:
       wait 1
       say *You feel smarter after reading it.*
   
+  gold_coin:
+    name: "Gold Coin"
+    description: "A shiny gold coin with ancient markings."
+    
+  magic_scroll:
+    name: "Magic Scroll"
+    description: "A scroll with glowing runes that seem to shift when you look at them."
+
   treasure_chest:
     name: "Treasure Chest"
     description: "A wooden chest with brass fittings. It looks like it could hold treasures."
+    tags: ["container", "immovable"]
+    is_container: true
+    contents: ["gold_coin", "magic_scroll"]
     tags: ["container", "treasure"]
     is_container: true
     contents: ["golden_coin", "silver_key"]

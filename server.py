@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 
 # Try to import database modules (optional)
 try:
@@ -689,12 +689,30 @@ class TextSpaceServer:
         if not current_room:
             return "You are in an unknown location."
         
-        if direction not in current_room.exits:
+        # Find matching exits (exact match first, then partial)
+        matching_exits = []
+        exact_match = None
+        
+        for exit_name in current_room.exits:
+            if exit_name == direction:
+                exact_match = exit_name
+                break
+            elif exit_name.startswith(direction):
+                matching_exits.append(exit_name)
+        
+        # Use exact match if found
+        if exact_match:
+            target_exit = exact_match
+        elif len(matching_exits) == 1:
+            target_exit = matching_exits[0]
+        elif len(matching_exits) > 1:
+            return f"Ambiguous direction '{direction}'. Options: {', '.join(matching_exits)}"
+        else:
             return f"You can't go {direction} from here."
         
-        target_room_id = current_room.exits[direction]
+        target_room_id = current_room.exits[target_exit]
         if target_room_id not in self.rooms:
-            return f"The {direction} exit leads nowhere."
+            return f"The {target_exit} exit leads nowhere."
         
         # Move user
         current_room.users.discard(web_user.name)
@@ -1102,8 +1120,6 @@ class TextSpaceServer:
             return await self.move_user(user, args[0])
         elif cmd in ["north", "south", "east", "west"]:
             return await self.move_user(user, cmd)
-        elif cmd in self.rooms.get(user.room_id, Room("", "", "", {})).exits:
-            return await self.move_user(user, cmd)
         
         # Communication commands
         elif cmd == "say" and args:
@@ -1249,13 +1265,30 @@ Admin commands:
         if not current_room:
             return "You are in an unknown location."
         
-        # Check if direction is valid
-        if direction not in current_room.exits:
+        # Find matching exits (exact match first, then partial)
+        matching_exits = []
+        exact_match = None
+        
+        for exit_name in current_room.exits:
+            if exit_name == direction:
+                exact_match = exit_name
+                break
+            elif exit_name.startswith(direction):
+                matching_exits.append(exit_name)
+        
+        # Use exact match if found
+        if exact_match:
+            target_exit = exact_match
+        elif len(matching_exits) == 1:
+            target_exit = matching_exits[0]
+        elif len(matching_exits) > 1:
+            return f"Ambiguous direction '{direction}'. Options: {', '.join(matching_exits)}"
+        else:
             return f"You can't go {direction} from here."
         
-        target_room_id = current_room.exits[direction]
+        target_room_id = current_room.exits[target_exit]
         if target_room_id not in self.rooms:
-            return f"The {direction} exit leads nowhere."
+            return f"The {target_exit} exit leads nowhere."
         
         # Trigger leave room event
         await self.trigger_event(Event("leave_room", user.room_id, user.name))

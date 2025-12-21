@@ -61,6 +61,23 @@
         const socket = io();
         let loggedIn = false;
 
+        socket.on('connect', () => {
+            addMessage('Connected to server. Enter your username to begin.');
+        });
+
+        socket.on('login_response', (data) => {
+            if (data.success) {
+                loggedIn = true;
+                addMessage('Login successful! Type "help" for commands.');
+                if (data.admin) {
+                    addMessage('You have admin privileges.');
+                }
+            } else {
+                addMessage('Login failed: ' + data.message);
+                loggedIn = false;
+            }
+        });
+
         socket.on('message', (data) => {
             addMessage(data.text);
         });
@@ -68,10 +85,21 @@
         socket.on('room_info', (data) => {
             document.getElementById('room-name').innerHTML = '<strong>' + data.name + '</strong>';
             document.getElementById('room-desc').textContent = data.description;
-            document.getElementById('room-exits').textContent = 'Exits: ' + data.exits.join(', ');
-            document.getElementById('room-users').textContent = data.users.length > 0 
-                ? 'Others here: ' + data.users.join(', ') 
-                : '';
+            document.getElementById('room-exits').textContent = 'Exits: ' + (data.exits || []).join(', ');
+            
+            let usersText = '';
+            if (data.users && data.users.length > 0) {
+                usersText += 'Others here: ' + data.users.join(', ');
+            }
+            if (data.bots && data.bots.length > 0) {
+                if (usersText) usersText += ' | ';
+                usersText += 'Bots: ' + data.bots.join(', ');
+            }
+            if (data.items && data.items.length > 0) {
+                if (usersText) usersText += ' | ';
+                usersText += 'Items: ' + data.items.join(', ');
+            }
+            document.getElementById('room-users').textContent = usersText;
         });
 
         function addMessage(text) {
@@ -88,9 +116,10 @@
             const command = input.value.trim();
             if (!command) return;
 
+            addMessage('> ' + command);
+
             if (!loggedIn) {
                 socket.emit('login', {username: command});
-                loggedIn = true;
             } else {
                 socket.emit('command', {command: command});
             }
@@ -101,6 +130,16 @@
         document.getElementById('input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendCommand();
         });
+
+        // Update placeholder based on login status
+        setInterval(() => {
+            const input = document.getElementById('input');
+            if (!loggedIn) {
+                input.placeholder = 'Enter your username...';
+            } else {
+                input.placeholder = 'Enter command (type "help" for commands)...';
+            }
+        }, 1000);
     </script>
 </body>
 </html>

@@ -450,23 +450,8 @@ class TextSpaceServer:
                 emit('login_response', {'success': False, 'message': 'Username required'})
                 return
             
-            # Handle authentication
-            if self.use_database and password:
-                # Database authentication
-                try:
-                    if self.auth_service.authenticate_user(username, password):
-                        user_data = asyncio.run(self.user_repo.get_user(username))
-                        admin = user_data.get('admin', False) if user_data else False
-                    else:
-                        emit('login_response', {'success': False, 'message': 'Invalid credentials'})
-                        return
-                except Exception as e:
-                    logger.error(f"Authentication error: {e}")
-                    emit('login_response', {'success': False, 'message': 'Authentication failed'})
-                    return
-            else:
-                # Simple username-based authentication (flat file mode)
-                admin = username == "admin"
+            # Simple username-based authentication (no password required for now)
+            admin = username == "admin"
             
             # Create web user
             web_user = WebUser(
@@ -494,6 +479,7 @@ class TextSpaceServer:
             logger.info(f"Web user '{username}' logged in (admin: {admin})")
             
             emit('login_response', {'success': True, 'admin': admin})
+            emit('message', {'text': f'Welcome, {username}! Type "help" for commands.'})
             
             # Send initial room info
             asyncio.create_task(self.send_web_room_info(username))

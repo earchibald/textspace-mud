@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.3.5"
+VERSION = "1.3.6"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -606,7 +606,7 @@ class TextSpaceServer:
         # Command aliases
         aliases = {
             'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
-            'l': 'look', 'g': 'go', '"': 'say', 'i': 'inventory', 'h': 'help'
+            'l': 'look', 'g': 'go', '"': 'say', 'i': 'inventory', 'h': 'help', 'v': 'version'
         }
         
         # Apply alias if it exists
@@ -1104,7 +1104,7 @@ class TextSpaceServer:
         # Command aliases
         aliases = {
             'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
-            'l': 'look', 'g': 'go', '"': 'say', 'i': 'inventory', 'h': 'help'
+            'l': 'look', 'g': 'go', '"': 'say', 'i': 'inventory', 'h': 'help', 'v': 'version'
         }
         
         # Apply alias if it exists
@@ -1192,7 +1192,7 @@ Available commands:
   examine <item> - Look at an item closely
   use <item> - Use an item
   help (h) - Show this help
-  version - Show server version
+  version (v) - Show server version
   quit - Disconnect
 """
         

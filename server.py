@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.4.4"
+VERSION = "1.4.5"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -619,7 +619,9 @@ class TextSpaceServer:
         elif cmd == "version":
             return f"Text Space Server v{VERSION}"
         elif cmd == "switchuser" and args:
-            # Switch to different user
+            # Switch to different user (admin only)
+            if not web_user.admin:
+                return "Access denied. Admin privileges required."
             new_username = args[0]
             result = self.handle_switch_user_web(web_user, new_username)
             # Send special event to update localStorage
@@ -1340,7 +1342,6 @@ Available commands:
   use <item> - Use an item
   help (h) - Show this help
   version (v) - Show server version
-  switchuser <name> - Switch to different user
   quit - Disconnect
 """
         
@@ -1351,6 +1352,7 @@ Admin commands:
   broadcast <message> - Send message to all users
   script <name> - Execute a bot script
   kick <user> - Disconnect a user
+  switchuser <name> - Switch to different user
 """
         
         return help_text.strip()

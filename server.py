@@ -497,7 +497,16 @@ class TextSpaceServer:
             command = data.get('command', '').strip()
             
             if command:
-                asyncio.create_task(self.process_web_command(username, command))
+                try:
+                    # Process command synchronously for web users
+                    response = self.process_web_command_sync(username, command)
+                    if response:
+                        emit('message', {'text': response})
+                except Exception as e:
+                    logger.error(f"Error processing web command: {e}")
+                    emit('message', {'text': f'Error: {str(e)}'})
+            else:
+                emit('message', {'text': 'Empty command'})
     
     async def handle_web_user_disconnect(self, username, session_id):
         """Handle web user disconnection"""
@@ -565,37 +574,131 @@ class TextSpaceServer:
         
         self.socketio.emit('room_info', room_info, room=web_user.session_id)
     
-    async def process_web_command(self, username, command):
-        """Process command from web user"""
+    def process_web_command_sync(self, username, command):
+        """Process command from web user synchronously"""
+        if username not in self.web_users:
+            return "User not found"
+        
+        web_user = self.web_users[username]
+        
+        # Basic commands that don't need async
+        parts = command.split()
+        cmd = parts[0].lower()
+        args = parts[1:] if len(parts) > 1 else []
+        
+        if cmd == "help":
+            return self.get_help_text(web_user.admin)
+        elif cmd == "look":
+            return self.get_room_description(web_user.room_id, username)
+        elif cmd == "who":
+            return self.get_who_list()
+        elif cmd == "inventory" or cmd == "inv":
+            return self.get_inventory_web(web_user)
+        elif cmd == "say" and args:
+            message = " ".join(args)
+            return self.handle_say_web(web_user, message)
+        elif cmd in ["north", "south", "east", "west"] or (cmd == "go" and args):
+            direction = args[0] if cmd == "go" else cmd
+            return self.move_user_web(web_user, direction)
+        else:
+            return f"Unknown command: {cmd}. Type 'help' for available commands."
+    
+    def get_room_description(self, room_id, username):
+        """Get room description for web users"""
+        room = self.rooms.get(room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        message = f"{room.name}\n{room.description}\n"
+        
+        if room.exits:
+            exits = ", ".join(room.exits.keys())
+            message += f"Exits: {exits}\n"
+        
+        other_users = [u for u in room.users if u != username]
+        if other_users:
+            message += f"Users here: {', '.join(other_users)}\n"
+        
+        bots_here = [bot.name for bot in self.bots.values() 
+                    if bot.room_id == room.id and bot.visible]
+        if bots_here:
+            message += f"Bots here: {', '.join(bots_here)}\n"
+        
+        if room.items:
+            item_names = [self.items[item_id].name for item_id in room.items 
+                         if item_id in self.items]
+            if item_names:
+                message += f"Items here: {', '.join(item_names)}\n"
+        
+        # Update room info panel
+        self.send_web_room_info_sync(username)
+        
+        return message.strip()
+    
+    def get_inventory_web(self, web_user):
+        """Get inventory for web user"""
+        if not web_user.inventory:
+            return "You are not carrying anything."
+        
+        items = []
+        for item_id in web_user.inventory:
+            if item_id in self.items:
+                items.append(self.items[item_id].name)
+        
+        return f"You are carrying: {', '.join(items)}"
+    
+    def handle_say_web(self, web_user, message):
+        """Handle say command for web user"""
+        room_message = f"{web_user.name} says: {message}"
+        self.send_to_room(web_user.room_id, room_message, exclude_user=web_user.name)
+        return f"You say: {message}"
+    
+    def move_user_web(self, web_user, direction):
+        """Move web user to another room"""
+        current_room = self.rooms.get(web_user.room_id)
+        if not current_room:
+            return "You are in an unknown location."
+        
+        if direction not in current_room.exits:
+            return f"You can't go {direction} from here."
+        
+        target_room_id = current_room.exits[direction]
+        if target_room_id not in self.rooms:
+            return f"The {direction} exit leads nowhere."
+        
+        # Move user
+        current_room.users.discard(web_user.name)
+        web_user.room_id = target_room_id
+        self.rooms[target_room_id].users.add(web_user.name)
+        
+        # Update room info
+        self.send_web_room_info_sync(web_user.name)
+        
+        return self.get_room_description(target_room_id, web_user.name)
+    
+    def send_web_room_info_sync(self, username):
+        """Send room info to web user synchronously"""
         if username not in self.web_users:
             return
         
         web_user = self.web_users[username]
+        room = self.rooms.get(web_user.room_id)
         
-        # Create a temporary user object for command processing
-        temp_user = User(
-            name=username,
-            writer=None,  # No writer for web users
-            room_id=web_user.room_id,
-            authenticated=web_user.authenticated,
-            admin=web_user.admin,
-            inventory=web_user.inventory
-        )
+        if not room:
+            return
         
-        # Process command
-        response = await self.process_command(temp_user, command, is_web=True)
+        room_info = {
+            'name': room.name,
+            'description': room.description,
+            'exits': list(room.exits.keys()),
+            'users': [u for u in room.users if u != username],
+            'bots': [bot.name for bot in self.bots.values() 
+                    if bot.room_id == room.id and bot.visible],
+            'items': [self.items[item_id].name for item_id in room.items 
+                     if item_id in self.items]
+        }
         
-        # Update web user data
-        web_user.room_id = temp_user.room_id
-        web_user.inventory = temp_user.inventory
-        
-        # Send response
-        if response:
-            self.socketio.emit('message', {'text': response}, room=web_user.session_id)
-        
-        # Send updated room info after movement commands
-        if command.lower() in ['look', 'north', 'south', 'east', 'west', 'go', 'teleport'] or any(cmd in command.lower() for cmd in ['go ', 'move ']):
-            await self.send_web_room_info(username)
+        self.socketio.emit('room_info', room_info, room=web_user.session_id)
     
     def send_to_web_user(self, username, message):
         """Send message to specific web user"""

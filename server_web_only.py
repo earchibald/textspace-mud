@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -268,8 +268,14 @@ class TextSpaceServer:
         # Command aliases
         aliases = {
             'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
-            'l': 'look', 'g': 'go', '"': 'say', 'i': 'inventory', 'h': 'help', 'v': 'version'
+            'l': 'look', 'g': 'go', 'i': 'inventory', 'h': 'help', 'v': 'version'
         }
+        
+        # Handle quote alias for say
+        if cmd.startswith('"') and len(cmd) > 1:
+            # Extract message after quote
+            message = cmd[1:] + (" " + " ".join(args) if args else "")
+            return self.handle_say(web_user, message.strip())
         
         if cmd in aliases:
             cmd = aliases[cmd]
@@ -288,6 +294,10 @@ class TextSpaceServer:
         elif cmd == "say" and args:
             message = " ".join(args)
             return self.handle_say(web_user, message)
+        elif cmd == "whisper" and len(args) >= 2:
+            target = args[0]
+            message = " ".join(args[1:])
+            return self.handle_whisper(web_user, target, message)
         elif cmd in ["get", "take"] and args:
             item_name = " ".join(args)
             return self.handle_get_item(web_user, item_name)
@@ -336,6 +346,7 @@ Available commands:
   go <exit> (g) - Move to another room (or just type the exit name)
   north/south/east/west (n/s/e/w) - Move in cardinal directions
   say <message> (") - Speak to everyone in the room
+  whisper <user> <message> - Send private message to user
   who - List all online users
   inventory (i) - Show your items
   get <item> - Pick up an item
@@ -407,6 +418,19 @@ Admin commands:
         room_message = f"{web_user.name} says: {message}"
         self.send_to_room(web_user.room_id, room_message, exclude_user=web_user.name)
         return f"You say: {message}"
+    
+    def handle_whisper(self, web_user, target_username, message):
+        """Handle whisper command"""
+        if target_username not in self.web_users:
+            return f"User '{target_username}' not found."
+        
+        target_user = self.web_users[target_username]
+        
+        # Send whisper to target
+        whisper_message = f"{web_user.name} whispers: {message}"
+        emit('message', {'text': whisper_message}, room=target_user.session_id)
+        
+        return f"You whisper to {target_username}: {message}"
     
     def move_user(self, web_user, direction):
         """Move user to another room with partial matching"""

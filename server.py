@@ -597,9 +597,24 @@ class TextSpaceServer:
         elif cmd == "say" and args:
             message = " ".join(args)
             return self.handle_say_web(web_user, message)
+        elif cmd in ["get", "take"] and args:
+            item_name = " ".join(args)
+            return self.handle_get_item_web(web_user, item_name)
+        elif cmd == "drop" and args:
+            item_name = " ".join(args)
+            return self.handle_drop_item_web(web_user, item_name)
+        elif cmd in ["examine", "exam"] and args:
+            item_name = " ".join(args)
+            return self.handle_examine_item_web(web_user, item_name)
+        elif cmd == "use" and args:
+            item_name = " ".join(args)
+            return self.handle_use_item_web(web_user, item_name)
         elif cmd in ["north", "south", "east", "west"] or (cmd == "go" and args):
             direction = args[0] if cmd == "go" else cmd
             return self.move_user_web(web_user, direction)
+        elif cmd == "script" and web_user.admin and args:
+            script_name = args[0]
+            return self.handle_execute_script_web(web_user, script_name)
         else:
             return f"Unknown command: {cmd}. Type 'help' for available commands."
     
@@ -727,6 +742,111 @@ class TextSpaceServer:
                 'admin': web_user.admin
             }
             self.save_user_data()
+    
+    def handle_execute_script_web(self, web_user, script_name):
+        """Handle admin script execution for web user"""
+        if script_name not in self.scripts:
+            return f"Script '{script_name}' not found."
+        
+        script_data = self.scripts[script_name]
+        bot_name = script_data.get('bot')
+        script_code = script_data.get('script', '')
+        
+        if not bot_name or bot_name not in self.bots:
+            return f"Bot '{bot_name}' not found for script '{script_name}'."
+        
+        bot = self.bots[bot_name]
+        
+        try:
+            # Execute script asynchronously (fire and forget for web)
+            import asyncio
+            asyncio.create_task(self.script_engine.execute_script(script_code, bot_name, bot.room_id))
+            return f"Script '{script_name}' executed."
+        except Exception as e:
+            return f"Error executing script '{script_name}': {e}"
+    
+    def handle_get_item_web(self, web_user, item_name):
+        """Handle get item for web user"""
+        room = self.rooms.get(web_user.room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        # Find item in room
+        item_id = self.find_item_by_name(item_name, room.items)
+        if not item_id:
+            return f"There is no '{item_name}' here."
+        
+        # Move item from room to user
+        room.items.remove(item_id)
+        web_user.inventory.append(item_id)
+        self.save_web_user_data_sync(web_user)
+        
+        item = self.items[item_id]
+        return f"You pick up the {item.name}."
+    
+    def handle_drop_item_web(self, web_user, item_name):
+        """Handle drop item for web user"""
+        item_id = self.find_item_by_name(item_name, web_user.inventory)
+        if not item_id:
+            return f"You don't have a '{item_name}'."
+        
+        room = self.rooms.get(web_user.room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        # Move item from user to room
+        web_user.inventory.remove(item_id)
+        room.items.append(item_id)
+        self.save_web_user_data_sync(web_user)
+        
+        item = self.items[item_id]
+        return f"You drop the {item.name}."
+    
+    def handle_examine_item_web(self, web_user, item_name):
+        """Handle examine item for web user"""
+        # Check user inventory first
+        item_id = self.find_item_by_name(item_name, web_user.inventory)
+        
+        # Check room items
+        if not item_id:
+            room = self.rooms.get(web_user.room_id)
+            if room:
+                item_id = self.find_item_by_name(item_name, room.items)
+        
+        if not item_id:
+            return f"There is no '{item_name}' here."
+        
+        item = self.items[item_id]
+        description = f"{item.name}: {item.description}"
+        
+        if item.tags:
+            description += f"\nTags: {', '.join(item.tags)}"
+        
+        if item.is_container and item.contents:
+            content_names = [self.items[cid].name for cid in item.contents 
+                           if cid in self.items]
+            if content_names:
+                description += f"\nContains: {', '.join(content_names)}"
+        
+        return description
+    
+    def handle_use_item_web(self, web_user, item_name):
+        """Handle use item for web user"""
+        item_id = self.find_item_by_name(item_name, web_user.inventory)
+        if not item_id:
+            return f"You don't have a '{item_name}' to use."
+        
+        item = self.items[item_id]
+        if not item.script:
+            return f"The {item.name} cannot be used."
+        
+        # Execute item script
+        try:
+            import asyncio
+            asyncio.create_task(self.script_engine.execute_script(item.script, web_user.name, web_user.room_id))
+            return f"You use the {item.name}."
+        except Exception as e:
+            return f"The {item.name} doesn't work properly."
     
     def load_user_from_backend_sync(self, username):
         """Load user data synchronously"""

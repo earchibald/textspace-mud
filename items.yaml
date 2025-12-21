@@ -22,9 +22,6 @@ items:
     tags: ["container", "immovable"]
     is_container: true
     contents: ["gold_coin", "magic_scroll"]
-    tags: ["container", "treasure"]
-    is_container: true
-    contents: ["golden_coin", "silver_key"]
   
   golden_coin:
     name: "Golden Coin"

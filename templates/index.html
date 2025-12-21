@@ -27,6 +27,25 @@
             padding: 10px;
             margin-bottom: 10px;
             background: #000;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        #room-name {
+            font-weight: bold;
+            color: #ffff00;
+            margin-bottom: 5px;
+        }
+        #room-desc {
+            margin-bottom: 5px;
+        }
+        #room-exits {
+            color: #00ffff;
+            margin-bottom: 3px;
+        }
+        #room-users {
+            color: #ff00ff;
+            font-size: 0.9em;
         }
         #input {
             width: calc(100% - 80px);
@@ -185,6 +204,9 @@
 
         socket.on('message', (data) => {
             addMessage(data.text);
+            
+            // Check if this is a room description and update room info box
+            updateRoomInfo(data.text);
         });
 
         function addMessage(text) {
@@ -205,6 +227,52 @@
             msg.textContent = text;
             output.appendChild(msg);
             output.scrollTop = output.scrollHeight;
+        }
+
+        function updateRoomInfo(text) {
+            // Check if this looks like a room description
+            const lines = text.split('\n');
+            if (lines.length >= 2 && !text.startsWith('>') && !text.includes('says:') && !text.includes('whispers:')) {
+                // First line is likely the room name
+                const roomName = lines[0].trim();
+                
+                // Look for room description, exits, users, bots, items
+                let description = '';
+                let exits = '';
+                let users = '';
+                let bots = '';
+                let items = '';
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line.startsWith('Exits:')) {
+                        exits = line;
+                    } else if (line.startsWith('Users here:')) {
+                        users = line;
+                    } else if (line.startsWith('Bots here:')) {
+                        bots = line;
+                    } else if (line.startsWith('Items here:')) {
+                        items = line;
+                    } else if (line && !exits && !users && !bots && !items) {
+                        // This is part of the description
+                        description += (description ? ' ' : '') + line;
+                    }
+                }
+                
+                // Update room info elements
+                if (roomName && description) {
+                    document.getElementById('room-name').textContent = roomName;
+                    document.getElementById('room-desc').textContent = description;
+                    document.getElementById('room-exits').textContent = exits;
+                    
+                    // Combine users, bots, and items
+                    let presence = [];
+                    if (users) presence.push(users);
+                    if (bots) presence.push(bots);
+                    if (items) presence.push(items);
+                    document.getElementById('room-users').textContent = presence.join('\n');
+                }
+            }
         }
 
         // Auto-focus input when DOM is ready

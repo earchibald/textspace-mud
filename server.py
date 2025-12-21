@@ -586,6 +586,16 @@ class TextSpaceServer:
         cmd = parts[0].lower()
         args = parts[1:] if len(parts) > 1 else []
         
+        # Command aliases
+        aliases = {
+            'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
+            'l': 'look', 'g': 'go', '"': 'say', 'i': 'inventory', 'h': 'help'
+        }
+        
+        # Apply alias if it exists
+        if cmd in aliases:
+            cmd = aliases[cmd]
+        
         if cmd == "help":
             return self.get_help_text(web_user.admin)
         elif cmd == "look":
@@ -1054,6 +1064,16 @@ class TextSpaceServer:
         cmd = parts[0].lower()
         args = parts[1:] if len(parts) > 1 else []
         
+        # Command aliases
+        aliases = {
+            'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
+            'l': 'look', 'g': 'go', '"': 'say', 'i': 'inventory', 'h': 'help'
+        }
+        
+        # Apply alias if it exists
+        if cmd in aliases:
+            cmd = aliases[cmd]
+        
         # Basic commands
         if cmd == "help":
             return self.get_help_text(user.admin)
@@ -1121,17 +1141,18 @@ class TextSpaceServer:
         """Get help text for user"""
         help_text = """
 Available commands:
-  look - See room description and contents
-  go <exit> - Move to another room (or just type the exit name)
-  say <message> - Speak to everyone in the room
+  look (l) - See room description and contents
+  go <exit> (g) - Move to another room (or just type the exit name)
+  north/south/east/west (n/s/e/w) - Move in cardinal directions
+  say <message> (") - Speak to everyone in the room
   whisper <user> <message> - Send private message
   who - List all online users
-  inventory - Show your items
+  inventory (i) - Show your items
   get <item> - Pick up an item
   drop <item> - Drop an item
   examine <item> - Look at an item closely
   use <item> - Use an item
-  help - Show this help
+  help (h) - Show this help
   quit - Disconnect
 """
         

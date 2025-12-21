@@ -22,8 +22,8 @@ RUN mkdir -p /app/data
 # Make scripts executable
 RUN chmod +x *.py
 
-# Expose ports
-EXPOSE 8888 5000
+# Expose port
+EXPOSE 8080
 
 # Start the server
-CMD ["python", "server.py"]
+CMD ["python", "server_web_only.py"]

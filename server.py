@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -800,16 +800,40 @@ class TextSpaceServer:
         if target_username in self.users:
             target_user = self.users[target_username]
             await self.send_message(target_user.writer, "You have been disconnected by an administrator.")
+            
+            # Remove from room
+            if target_user.room_id in self.rooms:
+                self.rooms[target_user.room_id].users.discard(target_username)
+            
+            # Remove from users dict
+            del self.users[target_username]
+            if target_user.writer in self.connections:
+                del self.connections[target_user.writer]
+            
+            # Close connection
             target_user.writer.close()
             await target_user.writer.wait_closed()
+            
             return f"Kicked TCP user: {target_username}"
         
         # Check web users
         if target_username in self.web_users:
             web_user = self.web_users[target_username]
             from flask_socketio import emit, disconnect
+            
+            # Remove from room
+            if web_user.room_id in self.rooms:
+                self.rooms[web_user.room_id].users.discard(target_username)
+            
+            # Remove from users dict
+            del self.web_users[target_username]
+            if web_user.session_id in self.web_sessions:
+                del self.web_sessions[web_user.session_id]
+            
+            # Send message and disconnect
             emit('message', {'text': 'You have been disconnected by an administrator.'}, room=web_user.session_id)
             disconnect(web_user.session_id)
+            
             return f"Kicked web user: {target_username}"
         
         return f"User '{target_username}' not found."
@@ -823,16 +847,40 @@ class TextSpaceServer:
         if target_username in self.users:
             target_user = self.users[target_username]
             import asyncio
+            
+            # Remove from room
+            if target_user.room_id in self.rooms:
+                self.rooms[target_user.room_id].users.discard(target_username)
+            
+            # Remove from users dict
+            del self.users[target_username]
+            if target_user.writer in self.connections:
+                del self.connections[target_user.writer]
+            
+            # Send message and close
             asyncio.create_task(self.send_message(target_user.writer, "You have been disconnected by an administrator."))
             target_user.writer.close()
+            
             return f"Kicked TCP user: {target_username}"
         
         # Check web users
         if target_username in self.web_users:
             web_user = self.web_users[target_username]
             from flask_socketio import emit, disconnect
+            
+            # Remove from room
+            if web_user.room_id in self.rooms:
+                self.rooms[web_user.room_id].users.discard(target_username)
+            
+            # Remove from users dict
+            del self.web_users[target_username]
+            if web_user.session_id in self.web_sessions:
+                del self.web_sessions[web_user.session_id]
+            
+            # Send message and disconnect
             emit('message', {'text': 'You have been disconnected by an administrator.'}, room=web_user.session_id)
             disconnect(web_user.session_id)
+            
             return f"Kicked web user: {target_username}"
         
         return f"User '{target_username}' not found."

@@ -592,6 +592,10 @@ class TextSpaceServer:
         # Send response
         if response:
             self.socketio.emit('message', {'text': response}, room=web_user.session_id)
+        
+        # Send updated room info after movement commands
+        if command.lower() in ['look', 'north', 'south', 'east', 'west', 'go', 'teleport'] or any(cmd in command.lower() for cmd in ['go ', 'move ']):
+            await self.send_web_room_info(username)
     
     def send_to_web_user(self, username, message):
         """Send message to specific web user"""
@@ -900,7 +904,11 @@ Admin commands:
         """Show room information to user"""
         room = self.rooms.get(user.room_id)
         if not room:
-            await self.send_message(user.writer, "You are in an unknown location.")
+            if user.writer:
+                await self.send_message(user.writer, "You are in an unknown location.")
+            else:
+                # Web user - send message via SocketIO
+                self.send_to_web_user(user.name, "You are in an unknown location.")
             return
         
         # Room description
@@ -932,7 +940,8 @@ Admin commands:
         if user.writer:
             await self.send_message(user.writer, message.strip())
         else:
-            # Web user - send room info update
+            # Web user - send message and room info
+            self.send_to_web_user(user.name, message.strip())
             await self.send_web_room_info(user.name)
     
     async def move_user(self, user, direction):

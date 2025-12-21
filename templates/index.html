@@ -19,6 +19,8 @@
             padding: 10px;
             margin-bottom: 10px;
             background: #000;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         #room-info {
             border: 2px solid #00ff00;
@@ -47,7 +49,12 @@
             background: #666;
             cursor: not-allowed;
         }
-        .message { margin: 5px 0; }
+        .message { 
+            margin: 5px 0; 
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
         .status-bar {
             background: #333;
             padding: 5px 10px;
@@ -180,31 +187,12 @@
             addMessage(data.text);
         });
 
-        socket.on('room_info', (data) => {
-            document.getElementById('room-name').innerHTML = '<strong>' + data.name + '</strong>';
-            document.getElementById('room-desc').textContent = data.description;
-            document.getElementById('room-exits').textContent = 'Exits: ' + (data.exits || []).join(', ');
-            
-            let usersText = '';
-            if (data.users && data.users.length > 0) {
-                usersText += 'Others here: ' + data.users.join(', ');
-            }
-            if (data.bots && data.bots.length > 0) {
-                if (usersText) usersText += ' | ';
-                usersText += 'Bots: ' + data.bots.join(', ');
-            }
-            if (data.items && data.items.length > 0) {
-                if (usersText) usersText += ' | ';
-                usersText += 'Items: ' + data.items.join(', ');
-            }
-            document.getElementById('room-users').textContent = usersText;
-        });
-
         function addMessage(text) {
             const output = document.getElementById('output');
             const msg = document.createElement('div');
             msg.className = 'message';
             msg.style.whiteSpace = 'pre-wrap'; // Preserve line breaks
+            msg.style.wordWrap = 'break-word'; // Fix Chrome word wrapping
             
             // Add timestamp and styling for system messages
             if (text.startsWith('✅') || text.startsWith('❌') || text.startsWith('🔴')) {

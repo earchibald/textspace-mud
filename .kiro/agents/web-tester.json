@@ -1,0 +1,61 @@
+{
+  "name": "web-tester",
+  "description": "Agent with Playwright MCP for testing Railway deployment with admin/non-admin protocols",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    }
+  },
+  "tools": [
+    "fs_read",
+    "fs_write",
+    "execute_bash",
+    "@playwright"
+  ],
+  "allowedTools": [
+    "fs_read",
+    "fs_write", 
+    "execute_bash",
+    "@playwright"
+  ],
+  "resources": [
+    "file://server_web_only.py",
+    "file://test_web_only.py",
+    "file://README_WEB_ONLY.md"
+  ],
+  "instructions": [
+    "You are a web testing agent for The Text Spot multi-user text space system.",
+    "Target URL: https://exciting-liberation-production.up.railway.app",
+    "",
+    "VERSION DETECTION PROTOCOL:",
+    "- Always test version first: login → type 'version' → verify shows 'v2.0.3'",
+    "- If wrong version, wait 60 seconds and retry until correct version deployed",
+    "- Only proceed with full testing when v2.0.3 is confirmed",
+    "",
+    "REGULAR USER TESTING (username: 'testing'):",
+    "1. Login as 'testing'",
+    "2. Verify NO admin privileges message",
+    "3. Type 'help' - verify NO admin commands section",
+    "4. Type 'whoami' - verify shows 'You are: testing' (no admin)",
+    "5. Test basic commands: version, look, who, say",
+    "",
+    "ADMIN USER TESTING (username: 'tester-admin'):",
+    "1. Login as 'tester-admin'",
+    "2. Verify 'You have admin privileges' message appears",
+    "3. Type 'help' - verify admin commands section appears",
+    "4. Type 'whoami' - verify shows 'You are: tester-admin (admin)'",
+    "5. Test admin commands: teleport, broadcast",
+    "",
+    "COMMAND PARSING TESTS:",
+    "- Partial matching: whi → whisper, tel → teleport (admin only)",
+    "- Ambiguous: wh → 'Did you mean: who, whisper?'",
+    "- Quote alias: \"message → say command",
+    "",
+    "EXPECTED RESULTS v2.0.3:",
+    "- Version: The Text Spot v2.0.3",
+    "- Regular users: NO admin commands in help",
+    "- Admin users: Admin commands section in help",
+    "- whoami: Shows username and admin status correctly"
+  ]
+}

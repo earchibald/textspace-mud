@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.2"
+VERSION = "2.0.3"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -194,7 +194,7 @@ class TextSpaceServer:
                 emit('login_response', {'success': False, 'message': 'Username required'})
                 return
             
-            admin = username == "admin"
+            admin = username == "admin" or username == "tester-admin"
             web_user = WebUser(
                 name=username,
                 session_id=request.sid,
@@ -287,6 +287,9 @@ class TextSpaceServer:
             return self.get_help_text(web_user.admin)
         elif cmd == "version":
             return f"The Text Spot v{VERSION}"
+        elif cmd == "whoami":
+            admin_status = " (admin)" if web_user.admin else ""
+            return f"You are: {web_user.name}{admin_status}"
         elif cmd == "look":
             return self.get_room_description(web_user.room_id, username)
         elif cmd == "who":
@@ -344,7 +347,7 @@ class TextSpaceServer:
         """Resolve command using most-significant match"""
         # Define all available commands
         basic_commands = [
-            'help', 'version', 'look', 'who', 'inventory', 'say', 'whisper',
+            'help', 'version', 'whoami', 'look', 'who', 'inventory', 'say', 'whisper',
             'get', 'take', 'drop', 'examine', 'exam', 'use', 'go', 'move',
             'north', 'south', 'east', 'west'
         ]
@@ -390,6 +393,7 @@ Available commands:
   say <message> (") - Speak to everyone in the room
   whisper <user> <message> - Send private message to user
   who - List all online users
+  whoami - Show your username and admin status
   inventory (i) - Show your items
   get <item> - Pick up an item
   drop <item> - Drop an item

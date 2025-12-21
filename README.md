@@ -398,7 +398,7 @@ The system supports two backends:
 **Database Backend (Production):**
 - Requires SQLite (built into Python)
 - Scalable for production use
-- See [Database Setup](#database-backend) for configuration
+- See [Database Backend](#database-backend) for configuration
 
 ### Starting the Server
 

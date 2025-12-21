@@ -367,6 +367,68 @@ class TextSpaceServer:
         def index():
             return render_template('index.html')
         
+        @self.app.route('/init-db')
+        def init_database():
+            """Initialize database with YAML data"""
+            try:
+                import yaml
+                
+                # Load and save rooms
+                with open('rooms.yaml', 'r') as f:
+                    rooms_data = yaml.safe_load(f)
+                    for room_id, room_data in rooms_data['rooms'].items():
+                        if not self.db.get_room(room_id):  # Only if not exists
+                            from db.models import Room
+                            room = Room(
+                                id=room_id,
+                                name=room_data['name'],
+                                description=room_data['description'],
+                                exits=room_data.get('exits', {}),
+                                items=room_data.get('items', [])
+                            )
+                            self.db.save_room(room)
+                
+                # Load and save items
+                with open('items.yaml', 'r') as f:
+                    items_data = yaml.safe_load(f)
+                    for item_id, item_data in items_data['items'].items():
+                        if not self.db.get_item(item_id):  # Only if not exists
+                            from db.models import Item
+                            item = Item(
+                                id=item_id,
+                                name=item_data['name'],
+                                description=item_data['description'],
+                                tags=item_data.get('tags', []),
+                                is_container=item_data.get('is_container', False),
+                                contents=item_data.get('contents', []),
+                                script=item_data.get('script')
+                            )
+                            self.db.save_item(item)
+                
+                # Load and save bots
+                with open('bots.yaml', 'r') as f:
+                    bots_data = yaml.safe_load(f)
+                    for bot_id, bot_data in bots_data['bots'].items():
+                        if not self.db.get_bot(bot_id):  # Only if not exists
+                            from db.models import Bot
+                            bot = Bot(
+                                id=bot_id,
+                                name=bot_data['name'],
+                                room_id=bot_data['room'],
+                                description=bot_data['description'],
+                                responses=bot_data.get('responses', []),
+                                visible=bot_data.get('visible', True),
+                                inventory=bot_data.get('inventory', [])
+                            )
+                            self.db.save_bot(bot)
+                
+                # Reload data into memory
+                self.load_from_database()
+                
+                return {"status": "success", "message": "Database initialized successfully"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+        
         @self.socketio.on('connect')
         def handle_connect():
             logger.info(f"Web client connected: {request.sid}")

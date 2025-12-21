@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.5"
+VERSION = "2.0.6"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")

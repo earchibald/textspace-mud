@@ -1163,7 +1163,9 @@ Admin commands:
         # Get host and ports from environment for Railway
         host = os.getenv('HOST', host)
         tcp_port = int(os.getenv('TCP_PORT', tcp_port))
-        web_port = int(os.getenv('WEB_PORT', web_port))
+        
+        # Railway uses PORT for web traffic
+        web_port = int(os.getenv('PORT', os.getenv('WEB_PORT', web_port)))
         
         # Start TCP server
         tcp_server = await asyncio.start_server(

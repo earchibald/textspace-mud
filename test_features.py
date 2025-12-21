@@ -424,7 +424,7 @@ class FeatureTestSuite:
         
         # Summary
         total_features = len(overall_results)
-        passed_features = sum(overall_results.values())
+        passed_features = sum(1 for result in overall_results.values() if result)
         pass_rate = (passed_features / total_features) * 100
         
         print(f"\n🎯 Overall Results")

@@ -21,7 +21,7 @@ echo "✅ All required files found"
 
 # Test import
 echo "Testing Python imports..."
-python3 -c "
+python -c "
 try:
     import server_v2
     print('✅ server_v2.py imports successfully')

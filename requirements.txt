@@ -2,10 +2,4 @@
 PyYAML>=6.0
 flask>=2.3.0
 flask-socketio>=5.5.0
-
-# Database backend dependencies (optional - for production use)
-# Install with: pip install pymongo redis bcrypt python-dotenv
-# pymongo>=4.6.0
-# redis>=5.0.0
-# bcrypt>=4.0.0
-# python-dotenv>=1.0.0
+psutil>=5.9.0

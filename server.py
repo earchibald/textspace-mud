@@ -18,8 +18,7 @@ import threading
 
 # Try to import database modules (optional)
 try:
-    from database import DatabaseManager, UserRepository, RoomRepository, ItemRepository, SessionManager
-    from auth import AuthenticationService, PasswordManager
+    from db import Database, User as DBUser, Room as DBRoom, Item as DBItem, Bot as DBBot
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
@@ -150,13 +149,9 @@ class TextSpaceServer:
     def _init_database_backend(self):
         """Initialize database backend"""
         try:
-            self.db_manager = DatabaseManager()
-            self.user_repo = UserRepository(self.db_manager)
-            self.room_repo = RoomRepository(self.db_manager)
-            self.item_repo = ItemRepository(self.db_manager)
-            self.auth_service = AuthenticationService(self.db_manager)
+            self.db = Database()
             
-            if not self.db_manager.test_connections():
+            if not self.db.test_connection():
                 raise Exception("Database connection failed")
             
             self.load_from_database()
@@ -183,39 +178,39 @@ class TextSpaceServer:
         """Load data from database into memory"""
         try:
             # Load rooms
-            rooms_data = self.room_repo.get_all_rooms()
-            for room_data in rooms_data:
-                self.rooms[room_data['_id']] = Room(
-                    id=room_data['_id'],
-                    name=room_data['name'],
-                    description=room_data['description'],
-                    exits=room_data.get('exits', {}),
-                    items=room_data.get('items', [])
+            rooms_data = self.db.get_all_rooms()
+            for room in rooms_data:
+                self.rooms[room.id] = Room(
+                    id=room.id,
+                    name=room.name,
+                    description=room.description,
+                    exits=room.exits,
+                    items=room.items
                 )
             
             # Load items
-            items_data = self.item_repo.get_all_items()
-            for item_data in items_data:
-                self.items[item_data['_id']] = Item(
-                    id=item_data['_id'],
-                    name=item_data['name'],
-                    description=item_data['description'],
-                    tags=item_data.get('tags', []),
-                    is_container=item_data.get('is_container', False),
-                    contents=item_data.get('contents', []),
-                    script=item_data.get('script')
+            items_data = self.db.get_all_items()
+            for item in items_data:
+                self.items[item.id] = Item(
+                    id=item.id,
+                    name=item.name,
+                    description=item.description,
+                    tags=item.tags,
+                    is_container=item.is_container,
+                    contents=item.contents,
+                    script=item.script
                 )
             
             # Load bots
-            bots_data = list(self.db_manager.bots.find({}))
-            for bot_data in bots_data:
-                self.bots[bot_data['_id']] = Bot(
-                    name=bot_data['name'],
-                    room_id=bot_data['room_id'],
-                    description=bot_data['description'],
-                    responses=bot_data.get('responses', []),
-                    visible=bot_data.get('visible', True),
-                    inventory=bot_data.get('inventory', [])
+            bots_data = self.db.get_all_bots()
+            for bot in bots_data:
+                self.bots[bot.id] = Bot(
+                    name=bot.name,
+                    room_id=bot.room_id,
+                    description=bot.description,
+                    responses=bot.responses,
+                    visible=bot.visible,
+                    inventory=bot.inventory
                 )
             
             # Load scripts (keep in memory for now)
@@ -330,14 +325,14 @@ class TextSpaceServer:
         """Save user data to appropriate backend"""
         if self.use_database:
             try:
-                user_data = {
-                    'name': user.name,
-                    'room_id': user.room_id,
-                    'inventory': user.inventory,
-                    'admin': user.admin,
-                    'last_seen': datetime.utcnow()
-                }
-                await self.user_repo.save_user(user_data)
+                db_user = DBUser(
+                    name=user.name,
+                    room_id=user.room_id,
+                    inventory=user.inventory,
+                    admin=user.admin,
+                    last_seen=datetime.utcnow()
+                )
+                self.db.save_user(db_user)
             except Exception as e:
                 logger.error(f"Error saving user to database: {e}")
         else:
@@ -353,8 +348,13 @@ class TextSpaceServer:
         """Load user data from appropriate backend"""
         if self.use_database:
             try:
-                user_data = await self.user_repo.get_user(username)
-                return user_data
+                db_user = self.db.get_user(username)
+                if db_user:
+                    return {
+                        'room_id': db_user.room_id,
+                        'inventory': db_user.inventory,
+                        'admin': db_user.admin
+                    }
             except Exception as e:
                 logger.error(f"Error loading user from database: {e}")
                 return None

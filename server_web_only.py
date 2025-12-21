@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -268,20 +268,19 @@ class TextSpaceServer:
         cmd = parts[0].lower()
         args = parts[1:] if len(parts) > 1 else []
         
-        # Command aliases
-        aliases = {
-            'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
-            'l': 'look', 'g': 'go', 'i': 'inventory', 'h': 'help', 'v': 'version'
-        }
-        
         # Handle quote alias for say
         if cmd.startswith('"') and len(cmd) > 1:
             # Extract message after quote
             message = cmd[1:] + (" " + " ".join(args) if args else "")
             return self.handle_say(web_user, message.strip())
         
-        if cmd in aliases:
-            cmd = aliases[cmd]
+        # Most-significant match command parsing
+        cmd = self.resolve_command(cmd, web_user.admin)
+        
+        # Handle ambiguous commands
+        if cmd.startswith("AMBIGUOUS:"):
+            matches = cmd.split(":")[1].split(",")
+            return f"Ambiguous command. Did you mean: {', '.join(matches)}?"
         
         # Basic commands
         if cmd == "help":
@@ -340,6 +339,46 @@ class TextSpaceServer:
             return result
         
         return f"Unknown command: {cmd}. Type 'help' for available commands."
+    
+    def resolve_command(self, cmd, is_admin):
+        """Resolve command using most-significant match"""
+        # Define all available commands
+        basic_commands = [
+            'help', 'version', 'look', 'who', 'inventory', 'say', 'whisper',
+            'get', 'take', 'drop', 'examine', 'exam', 'use', 'go', 'move',
+            'north', 'south', 'east', 'west'
+        ]
+        
+        admin_commands = ['teleport', 'broadcast', 'kick', 'switchuser']
+        
+        # Single-letter aliases (exact matches only)
+        aliases = {
+            'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
+            'l': 'look', 'g': 'go', 'i': 'inventory', 'h': 'help', 'v': 'version'
+        }
+        
+        # Check exact alias match first (only for single letters)
+        if len(cmd) == 1 and cmd in aliases:
+            return aliases[cmd]
+        
+        # Build command list based on user privileges
+        all_commands = basic_commands[:]
+        if is_admin:
+            all_commands.extend(admin_commands)
+        
+        # Find exact match
+        if cmd in all_commands:
+            return cmd
+        
+        # Find partial matches
+        matches = [c for c in all_commands if c.startswith(cmd)]
+        
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) > 1:
+            return f"AMBIGUOUS:{','.join(matches)}"
+        else:
+            return cmd  # Return original if no matches
     
     def get_help_text(self, is_admin):
         """Get help text for user"""

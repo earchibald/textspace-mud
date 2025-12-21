@@ -17,7 +17,10 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.3.1"
+VERSION = "1.3.2"
+
+# Server configuration
+SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
 
 # Try to import database modules (optional)
 try:
@@ -368,7 +371,7 @@ class TextSpaceServer:
         """Setup Flask routes and SocketIO handlers"""
         @self.app.route('/')
         def index():
-            return render_template('index.html')
+            return render_template('index.html', server_name=SERVER_NAME)
         
         @self.app.route('/init-db')
         def init_database():

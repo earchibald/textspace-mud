@@ -462,7 +462,7 @@ class TextSpaceServer:
             )
             
             # Load user data
-            user_data = asyncio.run(self.load_user_from_backend(username))
+            user_data = self.load_user_from_backend_sync(username)
             if user_data:
                 web_user.room_id = user_data.get('room_id', 'lobby')
                 web_user.inventory = user_data.get('inventory', [])
@@ -671,6 +671,9 @@ class TextSpaceServer:
         web_user.room_id = target_room_id
         self.rooms[target_room_id].users.add(web_user.name)
         
+        # Save user data to backend
+        self.save_web_user_data_sync(web_user)
+        
         # Update room info
         self.send_web_room_info_sync(web_user.name)
         
@@ -699,6 +702,48 @@ class TextSpaceServer:
         }
         
         self.socketio.emit('room_info', room_info, room=web_user.session_id)
+    
+    def save_web_user_data_sync(self, web_user):
+        """Save web user data synchronously"""
+        if self.use_database:
+            try:
+                from db.models import User as DBUser
+                from datetime import datetime
+                db_user = DBUser(
+                    name=web_user.name,
+                    room_id=web_user.room_id,
+                    inventory=web_user.inventory,
+                    admin=web_user.admin,
+                    last_seen=datetime.utcnow()
+                )
+                self.db.save_user(db_user)
+            except Exception as e:
+                logger.error(f"Error saving web user to database: {e}")
+        else:
+            # Save to flat file
+            self.persistent_users[web_user.name] = {
+                'room_id': web_user.room_id,
+                'inventory': web_user.inventory,
+                'admin': web_user.admin
+            }
+            self.save_user_data()
+    
+    def load_user_from_backend_sync(self, username):
+        """Load user data synchronously"""
+        if self.use_database:
+            try:
+                db_user = self.db.get_user(username)
+                if db_user:
+                    return {
+                        'room_id': db_user.room_id,
+                        'inventory': db_user.inventory,
+                        'admin': db_user.admin
+                    }
+            except Exception as e:
+                logger.error(f"Error loading user from database: {e}")
+                return None
+        else:
+            return self.persistent_users.get(username)
     
     def send_to_web_user(self, username, message):
         """Send message to specific web user"""

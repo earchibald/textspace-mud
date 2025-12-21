@@ -217,6 +217,9 @@ class TextSpaceServer:
             
             join_room(web_user.room_id)
             
+            # Notify room of player entering
+            self.send_to_room(web_user.room_id, f"📥 {username} enters the room.", exclude_user=username)
+            
             logger.info(f"Web user '{username}' logged in (admin: {admin})")
             
             emit('login_response', {'success': True, 'admin': admin})
@@ -468,6 +471,10 @@ Admin commands:
         web_user.room_id = target_room_id
         self.rooms[target_room_id].users.add(web_user.name)
         
+        # Notify rooms of player movement
+        self.send_to_room(current_room.id, f"📤 {web_user.name} leaves the room.", exclude_user=web_user.name)
+        self.send_to_room(target_room_id, f"📥 {web_user.name} enters the room.", exclude_user=web_user.name)
+        
         # Save user data
         self.save_user_data(web_user)
         
@@ -535,6 +542,9 @@ Admin commands:
         if new_web_user.room_id in self.rooms:
             self.rooms[new_web_user.room_id].users.add(new_username)
         
+        # Notify room of player entering
+        self.send_to_room(new_web_user.room_id, f"📥 {new_username} enters the room.", exclude_user=new_username)
+        
         return f"Switched to user: {new_username}. " + self.get_room_description(new_web_user.room_id, new_username)
     
     def handle_teleport(self, web_user, room_id):
@@ -582,8 +592,9 @@ Admin commands:
         if username in self.web_users:
             web_user = self.web_users[username]
             
-            # Remove from room
+            # Notify room of player leaving
             if web_user.room_id in self.rooms:
+                self.send_to_room(web_user.room_id, f"📤 {username} leaves the room.", exclude_user=username)
                 self.rooms[web_user.room_id].users.discard(username)
             
             # Save user data
@@ -642,7 +653,7 @@ Admin commands:
         logger.info(f"Starting {SERVER_NAME} v{VERSION}")
         logger.info(f"Web server starting on {host}:{port}")
         
-        self.socketio.run(self.app, host=host, port=port, debug=False)
+        self.socketio.run(self.app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
 
 if __name__ == "__main__":
     server = TextSpaceServer()

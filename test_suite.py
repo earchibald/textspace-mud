@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Comprehensive test suite for Multi-User Text Space System
 Tests both flat file and database backends

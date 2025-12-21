@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Monitoring and health check tool for Multi-User Text Space System
 """

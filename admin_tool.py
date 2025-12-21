@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Admin management tool for Multi-User Text Space System
 Provides command-line interface for administrative tasks

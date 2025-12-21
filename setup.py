@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Setup and management script for Multi-User Text Space System
 Provides easy setup, configuration, and management commands

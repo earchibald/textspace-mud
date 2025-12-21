@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Enhanced Text Space Server with Database Support
 Supports both flat file and database backends

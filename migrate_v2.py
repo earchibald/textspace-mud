@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Enhanced Migration tool to convert flat files to database
 Supports both one-time migration and parallel operation

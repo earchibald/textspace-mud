@@ -1,0 +1,7 @@
+# Database backend dependencies
+# Install with: pip install -r requirements-db.txt
+
+pymongo>=4.6.0       # MongoDB driver
+redis>=5.0.0         # Redis driver  
+bcrypt>=4.0.0        # Password hashing
+python-dotenv>=1.0.0 # Environment variable management

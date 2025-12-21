@@ -58,8 +58,39 @@ A social/community-focused multi-user text space system with educational feature
 │  │  Terminal Interface  │  │   Web Interface      │        │
 │  │  (asyncio/TCP)       │  │  (Flask/SocketIO)    │        │
 │  └──────────────────────┘  └──────────────────────┘        │
+├─────────────────────────────────────────────────────────────┤
+│                    Backend Storage                           │
+│  ┌──────────────────────┐  ┌──────────────────────┐        │
+│  │   Flat Files         │  │   Database           │        │
+│  │   - YAML/JSON        │  │   - MongoDB + Redis  │        │
+│  │   - Development      │  │   - Production       │        │
+│  └──────────────────────┘  └──────────────────────┘        │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Backend Options
+
+The system supports two storage backends:
+
+#### Flat File Backend (Default)
+- **Files**: YAML configuration, JSON user data
+- **Use Case**: Development, small deployments, simple setup
+- **Pros**: No external dependencies, easy to edit, version control friendly
+- **Cons**: Limited scalability, no concurrent access protection
+
+#### Database Backend (Production)
+- **Technologies**: MongoDB (document storage) + Redis (caching/sessions)
+- **Use Case**: Production deployments, multiple server instances, high concurrency
+- **Pros**: Scalable, concurrent access, advanced queries, backup/restore
+- **Cons**: Requires database setup and maintenance
+
+### Migration Path
+
+The system provides seamless migration from flat files to database:
+1. **Parallel Operation**: Run both backends simultaneously during transition
+2. **Zero Downtime**: Migrate without service interruption
+3. **Rollback Support**: Return to flat files if needed
+4. **Data Verification**: Ensure migration completeness
 
 ### Data Models
 
@@ -106,20 +137,45 @@ A social/community-focused multi-user text space system with educational feature
 ### Installation
 
 ```bash
-# Install dependencies
+# Install basic dependencies
 pip install -r requirements.txt
+
+# For database backend (optional)
+pip install pymongo redis bcrypt python-dotenv
 ```
+
+### Backend Selection
+
+The system supports two backends:
+
+**Flat File Backend (Default):**
+- No additional setup required
+- Uses YAML/JSON files for data storage
+- Perfect for development and small deployments
+
+**Database Backend (Production):**
+- Requires MongoDB and Redis
+- Scalable for production use
+- See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions
 
 ### Starting the Server
 
+**Flat File Mode (Default):**
 ```bash
-# Start the unified server (handles both TCP and web connections)
 python server.py
-
-# Server runs on:
-#   TCP: localhost:8888 (terminal/nc)  
-#   Web: localhost:5000 (browser)
+# or
+python server_v2.py  # Enhanced version with database support
 ```
+
+**Database Mode:**
+```bash
+# Set up .env file first (see DEPLOYMENT.md)
+USE_DATABASE=true python server_v2.py
+```
+
+**Server runs on:**
+- TCP: localhost:8888 (terminal/nc)  
+- Web: localhost:5000 (browser)
 
 ### Connecting
 
@@ -181,19 +237,32 @@ python client.py
 
 ```
 006-mats/
-├── server.py              # Main asyncio server
+├── server.py              # Original unified server (flat files only)
+├── server_v2.py           # Enhanced server (flat files + database)
 ├── client.py              # Terminal client
-├── web_server.py          # Flask web interface
 ├── script_engine.py       # Scripting language engine
+├── database.py            # Database layer (MongoDB + Redis)
+├── auth.py                # Authentication system
+├── migrate.py             # Original migration tool
+├── migrate_v2.py          # Enhanced migration tool
+├── setup.py               # Setup and management script
+├── admin_tool.py          # Admin management tool
+├── monitor.py             # Health monitoring tool
+├── backup_tool.py         # Backup and restore tool
+├── test_suite.py          # Comprehensive test suite
 ├── rooms.yaml             # Room definitions
 ├── bots.yaml              # Bot configurations
 ├── items.yaml             # Item definitions
 ├── scripts.yaml           # Bot scripts
 ├── users.json             # Persistent user data (auto-generated)
+├── .env                   # Environment configuration (create from .env.example)
+├── .env.example           # Environment template
 ├── templates/
 │   └── index.html         # Web interface template
 ├── textspace.log          # Server activity log
-├── requirements.txt       # Python dependencies
+├── requirements.txt       # Core Python dependencies
+├── requirements-db.txt    # Database dependencies
+├── DEPLOYMENT.md          # Database deployment guide
 └── README.md              # This file
 ```
 
@@ -431,6 +500,100 @@ All server activities are logged to `textspace.log`:
 
 ## Development
 
+### Management Tools
+
+The system includes comprehensive management tools for setup, administration, and maintenance:
+
+#### Setup Tool (`setup.py`)
+Automated setup and configuration:
+```bash
+# Set up flat file mode (simple)
+python setup.py setup-flat
+
+# Set up database mode (production)
+python setup.py setup-db
+
+# Check system status
+python setup.py status
+
+# Run test suite
+python setup.py test
+
+# Auto-start server
+python setup.py start
+```
+
+#### Admin Tool (`admin_tool.py`)
+User and system administration:
+```bash
+# List all users
+python admin_tool.py list
+
+# Promote user to admin
+python admin_tool.py promote username
+
+# Create new user
+python admin_tool.py create username --admin
+
+# Reset user location
+python admin_tool.py reset-location username --room lobby
+
+# Show system information
+python admin_tool.py info
+```
+
+#### Migration Tool (`migrate_v2.py`)
+Database migration and sync:
+```bash
+# Migrate from flat files to database
+python migrate_v2.py migrate
+
+# Run parallel sync (zero downtime)
+python migrate_v2.py sync
+
+# Verify migration integrity
+python migrate_v2.py verify
+```
+
+#### Monitoring Tool (`monitor.py`)
+Health checks and monitoring:
+```bash
+# Run health check
+python monitor.py
+
+# Continuous monitoring
+python monitor.py --monitor --interval 60
+
+# Database mode monitoring
+python monitor.py --database
+```
+
+#### Backup Tool (`backup_tool.py`)
+Data backup and restore:
+```bash
+# Create backup
+python backup_tool.py create
+
+# List available backups
+python backup_tool.py list
+
+# Restore from backup
+python backup_tool.py restore backup_file.tar.gz
+```
+
+#### Test Suite (`test_suite.py`)
+Comprehensive testing:
+```bash
+# Run all tests
+python test_suite.py
+
+# Tests include:
+# - Unit tests for core components
+# - Integration tests with real server
+# - Performance benchmarks
+# - Database connectivity tests
+```
+
 ### Adding New Rooms
 
 1. Edit `rooms.yaml`
@@ -546,7 +709,9 @@ flask-socketio>=5.5.0 # Real-time web communication
 - Bot AI integration
 
 ### Technical Improvements
-- Database backend for persistence
+- ✅ Database backend for persistence (MongoDB + Redis)
+- ✅ Enhanced authentication with password hashing
+- ✅ Migration tools for seamless upgrades
 - Enhanced web interface with graphics
 - Mobile app support
 - Voice interface option

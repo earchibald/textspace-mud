@@ -1,4 +1,9 @@
+# Virtual environment
 venv/
+env/
+ENV/
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
@@ -7,6 +12,34 @@ __pycache__/
 *.so
 .coverage
 .pytest_cache/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
 textspace.log
+
+# Environment files
+.env
+.env.local
+
+# Database files (exclude from git, use Railway volumes)
+*.db
+*.sqlite
+*.sqlite3
+textspace.db
+
+# User data (use database instead)
 users.json
+
+# Backups
+backup_*/
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

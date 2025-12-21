@@ -1158,8 +1158,13 @@ Admin commands:
                 except Exception as e:
                     logger.error(f"Error executing event script '{script_name}': {e}")
     
-    async def start_server(self, host='localhost', tcp_port=8888, web_port=5000):
+    async def start_server(self, host='0.0.0.0', tcp_port=8888, web_port=5000):
         """Start the unified server"""
+        # Get host and ports from environment for Railway
+        host = os.getenv('HOST', host)
+        tcp_port = int(os.getenv('TCP_PORT', tcp_port))
+        web_port = int(os.getenv('WEB_PORT', web_port))
+        
         # Start TCP server
         tcp_server = await asyncio.start_server(
             self.handle_client, host, tcp_port

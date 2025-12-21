@@ -105,6 +105,8 @@
         const socket = io();
         let loggedIn = false;
         let connectionStatus = 'connecting';
+        let commandHistory = [];
+        let historyIndex = -1;
 
         socket.on('connect', () => {
             connectionStatus = 'connected';
@@ -295,6 +297,16 @@
             const command = input.value.trim();
             if (!command || connectionStatus !== 'connected') return;
 
+            // Add to command history
+            if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== command) {
+                commandHistory.push(command);
+                // Keep only last 50 commands
+                if (commandHistory.length > 50) {
+                    commandHistory.shift();
+                }
+            }
+            historyIndex = -1;
+
             addMessage('> ' + command);
 
             if (!loggedIn) {
@@ -309,6 +321,32 @@
 
         document.getElementById('input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendCommand();
+        });
+
+        // Handle arrow key navigation for command history
+        document.getElementById('input').addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (commandHistory.length > 0) {
+                    if (historyIndex === -1) {
+                        historyIndex = commandHistory.length - 1;
+                    } else if (historyIndex > 0) {
+                        historyIndex--;
+                    }
+                    e.target.value = commandHistory[historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex !== -1) {
+                    if (historyIndex < commandHistory.length - 1) {
+                        historyIndex++;
+                        e.target.value = commandHistory[historyIndex];
+                    } else {
+                        historyIndex = -1;
+                        e.target.value = '';
+                    }
+                }
+            }
         });
 
         // Update placeholder based on connection and login status

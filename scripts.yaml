@@ -1,0 +1,88 @@
+scripts:
+  teacher_schedule:
+    bot: "teacher"
+    script: |
+      # Teacher's daily routine
+      say Good morning, class! Time for our lesson.
+      wait 2
+      say Today we'll learn about numbers. Can anyone count to 5?
+      wait 3
+      set lesson_topic math
+      if lesson_topic equals math then say Great! Math helps us solve problems.
+      wait 2
+      say Remember to ask questions if you need help!
+  
+  garden_guide_welcome:
+    bot: "guide"
+    trigger:
+      event: "enter_room"
+      room: "garden"
+    script: |
+      # Welcome visitors to the garden
+      say Welcome to our beautiful garden!
+      wait 1
+      say Take your time to explore and enjoy the flowers.
+      wait 2
+      say If you have questions about plants, just ask!
+
+  lobby_welcome:
+    bot: "greeter"
+    trigger:
+      event: "enter_room"
+      room: "lobby"
+    script: |
+      # Welcome new visitors
+      random_say Hello and welcome!|Welcome to our Text Space!|Greetings, new friend!
+      wait 1
+      say This is a place for learning and fun. Feel free to explore!
+      wait 1
+      say Type 'help' if you need assistance with commands.
+
+  garden_atmosphere:
+    bot: "wind_spirit"
+    trigger:
+      event: "enter_room"
+      room: "garden"
+    script: |
+      # Create atmospheric effects
+      wait 2
+      random_say *A gentle breeze stirs the flower petals*|*Birds chirp softly in the distance*|*The fountain bubbles peacefully*
+      wait 3
+      random_say *Butterflies dance among the roses*|*The air smells sweet with jasmine*|*Leaves rustle in the warm breeze*
+
+  advanced_teacher_lesson:
+    bot: "teacher"
+    script: |
+      # Advanced lesson with functions and loops
+      function greeting { say Welcome to our advanced lesson!; wait 1 }
+      function countdown { repeat 3 { say Counting down...; wait 1 } }
+      
+      call greeting
+      set lesson_number 1
+      say Today we'll learn about counting and repetition.
+      wait 2
+      call countdown
+      say Great! Now let's practice multiplication.
+      repeat 2 { say 2 times 3 equals 6; wait 1; say Practice makes perfect!; wait 1 }
+      say Excellent work everyone!
+
+  shopkeeper_trade:
+    bot: "shopkeeper"
+    script: |
+      # Trading system with functions
+      function check_trade { 
+        say Let me see what you have to trade...
+        wait 1
+      }
+      function complete_trade {
+        say Wonderful! Here's something special for you.
+        wait 1
+        say Thank you for the trade!
+      }
+      
+      call check_trade
+      # This would be triggered by user saying "trade magic_book"
+      take magic_book alice
+      wait 1
+      call complete_trade
+      give crystal_gem alice

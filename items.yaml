@@ -1,0 +1,64 @@
+items:
+  magic_book:
+    name: "Magic Book"
+    description: "A mysterious book with glowing letters. It seems to contain educational spells."
+    tags: ["educational", "magic", "readable"]
+    script: |
+      say *The book glows and whispers: 'Knowledge is the greatest magic!'*
+      wait 1
+      say *You feel smarter after reading it.*
+  
+  treasure_chest:
+    name: "Treasure Chest"
+    description: "A wooden chest with brass fittings. It looks like it could hold treasures."
+    tags: ["container", "treasure"]
+    is_container: true
+    contents: ["golden_coin", "silver_key"]
+  
+  golden_coin:
+    name: "Golden Coin"
+    description: "A shiny golden coin with mysterious symbols. It feels warm to the touch."
+    tags: ["treasure", "currency", "shiny"]
+  
+  silver_key:
+    name: "Silver Key"
+    description: "An ornate silver key. It might unlock something special."
+    tags: ["key", "silver", "tool"]
+  
+  flower_seeds:
+    name: "Flower Seeds"
+    description: "A small packet of colorful flower seeds. Perfect for planting in a garden."
+    tags: ["seeds", "garden", "nature"]
+    script: |
+      say *You plant the seeds in the ground.*
+      wait 2
+      say *Tiny green shoots begin to emerge!*
+  
+  story_scroll:
+    name: "Story Scroll"
+    description: "An ancient scroll containing a wonderful story for children."
+    tags: ["story", "educational", "readable"]
+    script: |
+      say *You unroll the scroll and begin to read...*
+      wait 1
+      say *'Once upon a time, in a land far away, there lived a brave little mouse...'*
+      wait 2
+      say *The story fills you with wonder and imagination!*
+
+  crystal_gem:
+    name: "Crystal Gem"
+    description: "A beautiful crystal that sparkles with inner light. Very valuable for trading."
+    tags: ["treasure", "crystal", "valuable"]
+    script: |
+      say *The crystal glows brightly in your hands*
+      wait 1
+      say *You feel a sense of accomplishment and wonder*
+
+  magic_wand:
+    name: "Magic Wand"
+    description: "A small wooden wand that tingles with magical energy."
+    tags: ["magic", "tool", "special"]
+    script: |
+      say *You wave the wand and sparkles appear in the air*
+      wait 1
+      random_say *Stars twinkle around you*|*Rainbow colors dance nearby*|*Gentle music fills the air*

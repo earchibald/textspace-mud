@@ -1,0 +1,43 @@
+rooms:
+  lobby:
+    name: "The Lobby"
+    description: "A welcoming entrance hall with soft lighting. Doors lead in various directions."
+    exits:
+      north: garden
+      east: library
+      south: playground
+    items: ["treasure_chest"]
+  
+  garden:
+    name: "The Garden"
+    description: "A peaceful garden with colorful flowers and a small fountain."
+    exits:
+      south: lobby
+      greenhouse: greenhouse
+    items: ["flower_seeds"]
+  
+  greenhouse:
+    name: "The Greenhouse"
+    description: "A warm, humid space filled with exotic plants and butterflies."
+    exits:
+      garden: garden
+  
+  library:
+    name: "The Library"
+    description: "Tall shelves filled with books of all kinds. A cozy reading nook sits in the corner."
+    exits:
+      west: lobby
+      study: study
+    items: ["magic_book", "story_scroll"]
+  
+  study:
+    name: "The Study Room"
+    description: "A quiet room with desks and learning materials. Perfect for focused activities."
+    exits:
+      library: library
+  
+  playground:
+    name: "The Playground"
+    description: "A fun space with colorful toys and games. Laughter echoes here."
+    exits:
+      north: lobby

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Text Space</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 800px;
+            margin: 50px auto;
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+        }
+        #output {
+            height: 400px;
+            overflow-y: auto;
+            border: 2px solid #00ff00;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #000;
+        }
+        #room-info {
+            border: 2px solid #00ff00;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #000;
+        }
+        #input {
+            width: calc(100% - 80px);
+            padding: 5px;
+            background: #000;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            font-family: monospace;
+        }
+        button {
+            padding: 5px 15px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        .message { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Text Space</h1>
+    <div id="room-info">
+        <div id="room-name"></div>
+        <div id="room-desc"></div>
+        <div id="room-exits"></div>
+        <div id="room-users"></div>
+    </div>
+    <div id="output"></div>
+    <input type="text" id="input" placeholder="Enter command..." autofocus>
+    <button onclick="sendCommand()">Send</button>
+
+    <script>
+        const socket = io();
+        let loggedIn = false;
+
+        socket.on('message', (data) => {
+            addMessage(data.text);
+        });
+
+        socket.on('room_info', (data) => {
+            document.getElementById('room-name').innerHTML = '<strong>' + data.name + '</strong>';
+            document.getElementById('room-desc').textContent = data.description;
+            document.getElementById('room-exits').textContent = 'Exits: ' + data.exits.join(', ');
+            document.getElementById('room-users').textContent = data.users.length > 0 
+                ? 'Others here: ' + data.users.join(', ') 
+                : '';
+        });
+
+        function addMessage(text) {
+            const output = document.getElementById('output');
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.textContent = text;
+            output.appendChild(msg);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function sendCommand() {
+            const input = document.getElementById('input');
+            const command = input.value.trim();
+            if (!command) return;
+
+            if (!loggedIn) {
+                socket.emit('login', {username: command});
+                loggedIn = true;
+            } else {
+                socket.emit('command', {command: command});
+            }
+
+            input.value = '';
+        }
+
+        document.getElementById('input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendCommand();
+        });
+    </script>
+</body>
+</html>

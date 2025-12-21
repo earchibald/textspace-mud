@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.3.4"
+VERSION = "1.3.5"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -487,8 +487,12 @@ class TextSpaceServer:
             emit('login_response', {'success': True, 'admin': admin})
             emit('message', {'text': f'Welcome, {username}! Type "help" for commands.'})
             
-            # Send initial room info
+            # Send initial room info with automatic look
             asyncio.create_task(self.send_web_room_info(username))
+            
+            # Send room description (implicit look)
+            room_desc = self.get_room_description(web_user.room_id, username)
+            emit('message', {'text': room_desc})
             
             # Trigger enter room event
             asyncio.create_task(self.trigger_event(Event("enter_room", web_user.room_id, username)))

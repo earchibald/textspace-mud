@@ -82,8 +82,15 @@
 
         socket.on('connect', () => {
             connectionStatus = 'connected';
-            addMessage('✅ Connected to server. Enter your username to begin.');
             updateConnectionStatus();
+            
+            // Check for stored username and auto-login
+            const storedUsername = localStorage.getItem('textspace_username');
+            if (storedUsername) {
+                socket.emit('login', {username: storedUsername});
+            } else {
+                addMessage('✅ Connected to server. Enter your username to begin.');
+            }
         });
 
         socket.on('disconnect', () => {
@@ -146,10 +153,27 @@
                 if (data.admin) {
                     addMessage('You have admin privileges.');
                 }
+                
+                // Store username in localStorage for auto-login
+                // Get username from the last command sent
+                const messages = document.querySelectorAll('#output .message');
+                for (let i = messages.length - 1; i >= 0; i--) {
+                    const msg = messages[i].textContent;
+                    if (msg.startsWith('> ') && !msg.includes(' ')) {
+                        const username = msg.substring(2);
+                        localStorage.setItem('textspace_username', username);
+                        break;
+                    }
+                }
             } else {
                 addMessage('Login failed: ' + data.message);
                 loggedIn = false;
             }
+        });
+
+        socket.on('user_switched', (data) => {
+            // Update stored username when user switches
+            localStorage.setItem('textspace_username', data.username);
         });
 
         socket.on('message', (data) => {

@@ -17,7 +17,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import threading
 
 # Version tracking
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -438,13 +438,7 @@ class TextSpaceServer:
         @self.socketio.on('connect')
         def handle_connect():
             logger.info(f"Web client connected: {request.sid}")
-            # Check for stored username in cookies
-            stored_username = request.cookies.get('textspace_username')
-            if stored_username:
-                # Auto-login with stored username
-                handle_web_login({'username': stored_username})
-            else:
-                emit('message', {'text': '✅ Connected to server. Enter your username to begin.'})
+            emit('message', {'text': '✅ Connected to server. Enter your username to begin.'})
         
         @self.socketio.on('disconnect')
         def handle_disconnect():
@@ -493,11 +487,6 @@ class TextSpaceServer:
             
             emit('login_response', {'success': True, 'admin': admin})
             emit('message', {'text': f'Welcome, {username}! Type "help" for commands.'})
-            
-            # Set username cookie for auto-login
-            from flask import make_response
-            response = make_response()
-            response.set_cookie('textspace_username', username, max_age=30*24*60*60)  # 30 days
             
             # Send initial room info with automatic look
             asyncio.create_task(self.send_web_room_info(username))
@@ -632,7 +621,11 @@ class TextSpaceServer:
         elif cmd == "switchuser" and args:
             # Switch to different user
             new_username = args[0]
-            return self.handle_switch_user_web(web_user, new_username)
+            result = self.handle_switch_user_web(web_user, new_username)
+            # Send special event to update localStorage
+            from flask_socketio import emit
+            emit('user_switched', {'username': new_username})
+            return result
         elif cmd == "look":
             return self.get_room_description(web_user.room_id, username)
         elif cmd == "who":

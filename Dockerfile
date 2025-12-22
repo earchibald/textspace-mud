@@ -8,10 +8,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt requirements-db.txt ./
+COPY requirements.txt ./
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-db.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
@@ -26,4 +26,4 @@ RUN chmod +x *.py
 EXPOSE 8080
 
 # Start the server
-CMD ["python", "server_web_only.py"]
+CMD ["bash", "start_railway.sh"]

@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.18"
+VERSION = "2.0.19"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -456,6 +456,9 @@ class TextSpaceServer:
             result = self.handle_switch_user(web_user, new_username)
             emit('user_switched', {'username': new_username})
             return result
+        elif cmd == "script" and web_user.admin and args:
+            script_name = args[0]
+            return self.handle_execute_script(web_user, script_name)
         
         return f"Unknown command: {cmd}. Type 'help' for available commands."
     
@@ -468,7 +471,7 @@ class TextSpaceServer:
             'north', 'south', 'east', 'west'
         ]
         
-        admin_commands = ['teleport', 'broadcast', 'kick', 'switchuser']
+        admin_commands = ['teleport', 'broadcast', 'kick', 'switchuser', 'script']
         
         # Single-letter aliases (exact matches only)
         aliases = {
@@ -528,6 +531,7 @@ Admin commands:
   broadcast <message> - Send message to all users
   kick <user> - Disconnect a user
   switchuser <name> - Switch to different user
+  script <name> - Execute a bot script
 """
         
         return help_text.strip()
@@ -709,6 +713,34 @@ Admin commands:
         self.send_to_room(new_web_user.room_id, f"📥 {new_username} enters the room.", exclude_user=new_username)
         
         return f"Switched to user: {new_username}. " + self.get_room_description(new_web_user.room_id, new_username)
+    
+    def handle_execute_script(self, web_user, script_name):
+        """Execute a bot script"""
+        if script_name not in self.scripts:
+            return f"Script '{script_name}' not found. Available scripts: {', '.join(self.scripts.keys())}"
+        
+        script_data = self.scripts[script_name]
+        bot_name = script_data.get('bot')
+        script_content = script_data.get('script')
+        
+        if not bot_name or not script_content:
+            return f"Invalid script configuration for '{script_name}'"
+        
+        if bot_name not in self.bots:
+            return f"Bot '{bot_name}' not found for script '{script_name}'"
+        
+        try:
+            # Execute the script asynchronously
+            import asyncio
+            asyncio.create_task(self.script_engine.execute_script(script_content, {
+                'bot': bot_name,
+                'user': web_user.name,
+                'room': web_user.room_id
+            }))
+            return f"Executing script '{script_name}' for bot '{bot_name}'"
+        except Exception as e:
+            logger.error(f"Script execution error: {e}")
+            return f"Error executing script '{script_name}': {str(e)}"
     
     def handle_teleport(self, web_user, room_id):
         """Handle teleport command"""

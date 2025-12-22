@@ -1,11 +1,12 @@
 #!/bin/bash
 # Railway startup script for TextSpace server
 
-echo "🚀 Starting TextSpace Server on Railway"
+echo "🚀 Starting TextSpace Server"
 
-# Check if we're on Railway and try to set up persistent config
-if [ "$RAILWAY_ENVIRONMENT" ]; then
-    echo "📁 Attempting to set up persistent configuration..."
+# Check if we're on Railway using correct variable
+if [ "$RAILWAY_ENVIRONMENT_NAME" ]; then
+    echo "📁 Railway environment detected: $RAILWAY_ENVIRONMENT_NAME"
+    echo "🔧 Setting up persistent configuration..."
     
     # Try to initialize configuration manager (non-blocking)
     python3 -c "
@@ -24,5 +25,5 @@ else
 fi
 
 # Start the server
-echo "🌐 Starting web server..."
+echo "🌐 Starting web server on port ${PORT:-8080}..."
 exec python3 server_web_only.py

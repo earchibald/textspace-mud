@@ -13,7 +13,14 @@ from pathlib import Path
 class ConfigManager:
     """Manages persistent configuration with Railway volume support"""
     
-    def __init__(self, persistent_path="/app/data", example_path="./config_examples"):
+    def __init__(self, persistent_path=None, example_path="./config_examples"):
+        # Use Railway volume path if available
+        if persistent_path is None:
+            if os.getenv('RAILWAY_VOLUME_MOUNT_PATH'):
+                persistent_path = os.path.join(os.getenv('RAILWAY_VOLUME_MOUNT_PATH'), 'config')
+            else:
+                persistent_path = "/app/data"
+        
         self.persistent_path = Path(persistent_path)
         self.example_path = Path(example_path)
         self.config_types = ["rooms", "bots", "items", "scripts"]

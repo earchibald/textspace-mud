@@ -16,7 +16,7 @@ from script_engine import ScriptEngine
 from config_manager import ConfigManager
 
 # Version tracking
-VERSION = "2.0.22"
+VERSION = "2.0.23"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -95,6 +95,9 @@ class TextSpaceServer:
         self.app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'textspace-secret-key')
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         
+        # Get port from Railway environment
+        self.port = int(os.getenv('PORT', 8080))
+        
         # Data storage
         self.rooms = {}
         self.items = {}
@@ -108,7 +111,7 @@ class TextSpaceServer:
             self.config_manager = ConfigManager()
             
             # Initialize persistent config on Railway
-            if os.getenv('RAILWAY_ENVIRONMENT'):
+            if os.getenv('RAILWAY_ENVIRONMENT_NAME'):
                 self.config_manager.initialize_persistent_config()
                 self.config_manager.create_symlinks()
         except Exception as e:

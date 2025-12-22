@@ -10,12 +10,12 @@ import logging
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, Optional, List
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.10"
+VERSION = "2.0.11"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -173,6 +173,105 @@ class TextSpaceServer:
         @self.app.route('/')
         def index():
             return render_template('index.html', server_name=SERVER_NAME)
+        
+        # REST API routes
+        @self.app.route('/api/status', methods=['GET'])
+        def api_status():
+            return jsonify({
+                'running': True,
+                'version': VERSION,
+                'users_online': len(self.web_users),
+                'rooms_count': len(self.rooms),
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        @self.app.route('/api/config/<config_type>', methods=['GET'])
+        def api_get_config(config_type):
+            try:
+                if config_type == 'rooms':
+                    return jsonify({'rooms': {k: v.__dict__ for k, v in self.rooms.items()}})
+                elif config_type == 'bots':
+                    return jsonify({'bots': {k: v.__dict__ for k, v in self.bots.items()}})
+                elif config_type == 'items':
+                    return jsonify({'items': {k: v.__dict__ for k, v in self.items.items()}})
+                elif config_type == 'scripts':
+                    return jsonify({'scripts': self.scripts})
+                else:
+                    return jsonify({'error': 'Invalid config type'}), 400
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/config/<config_type>', methods=['POST'])
+        def api_update_config(config_type):
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({'error': 'No data provided'}), 400
+                
+                # Create backup and update
+                import shutil
+                backup_file = f'{config_type}.yaml.backup.{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                shutil.copy(f'{config_type}.yaml', backup_file)
+                
+                # Write new config
+                with open(f'{config_type}.yaml', 'w') as f:
+                    yaml.dump(data, f, default_flow_style=False)
+                
+                # Reload configuration
+                if config_type == 'rooms':
+                    self.load_rooms()
+                elif config_type == 'bots':
+                    self.load_bots()
+                elif config_type == 'items':
+                    self.load_items()
+                elif config_type == 'scripts':
+                    self.load_scripts()
+                
+                return jsonify({'success': True, 'message': f'{config_type} configuration updated', 'backup': backup_file})
+                    
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/version', methods=['POST'])
+        def api_increment_version():
+            try:
+                # Read current version
+                with open('server_web_only.py', 'r') as f:
+                    content = f.read()
+                
+                # Increment version
+                import re
+                version_match = re.search(r'VERSION = "(\d+)\.(\d+)\.(\d+)"', content)
+                if version_match:
+                    major, minor, patch = map(int, version_match.groups())
+                    new_version = f"{major}.{minor}.{patch + 1}"
+                    
+                    new_content = re.sub(
+                        r'VERSION = "\d+\.\d+\.\d+"',
+                        f'VERSION = "{new_version}"',
+                        content
+                    )
+                    
+                    with open('server_web_only.py', 'w') as f:
+                        f.write(new_content)
+                    
+                    return jsonify({'success': True, 'version': new_version})
+                else:
+                    return jsonify({'error': 'Version not found'}), 500
+                    
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/logs', methods=['GET'])
+        def api_get_logs():
+            try:
+                lines = request.args.get('lines', 50, type=int)
+                with open('textspace.log', 'r') as f:
+                    log_lines = f.readlines()
+                recent_logs = ''.join(log_lines[-lines:])
+                return jsonify({'logs': recent_logs})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
         
         @self.socketio.on('connect')
         def handle_connect():

@@ -16,7 +16,7 @@ from script_engine import ScriptEngine
 from config_manager import ConfigManager
 
 # Version tracking
-VERSION = "2.0.23"
+VERSION = "2.0.24"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -789,17 +789,29 @@ Admin commands:
             return f"Bot '{bot_name}' not found for script '{script_name}'"
         
         try:
-            # Execute the script asynchronously
-            import asyncio
-            asyncio.create_task(self.script_engine.execute_script(script_content, {
-                'bot': bot_name,
-                'user': web_user.name,
-                'room': web_user.room_id
-            }))
+            # Execute the script in the background using socketio's background task
+            self.socketio.start_background_task(
+                self._execute_script_background, 
+                script_content, 
+                bot_name
+            )
             return f"Executing script '{script_name}' for bot '{bot_name}'"
         except Exception as e:
             logger.error(f"Script execution error: {e}")
             return f"Error executing script '{script_name}': {str(e)}"
+    
+    def _execute_script_background(self, script_content, bot_name):
+        """Background task for script execution"""
+        try:
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(
+                self.script_engine.execute_script(script_content, bot_name)
+            )
+            loop.close()
+        except Exception as e:
+            logger.error(f"Background script execution error: {e}")
     
     def handle_teleport(self, web_user, room_id):
         """Handle teleport command"""

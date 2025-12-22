@@ -16,7 +16,7 @@ from script_engine import ScriptEngine
 from config_manager import ConfigManager
 
 # Version tracking
-VERSION = "2.0.24"
+VERSION = "2.0.25"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")

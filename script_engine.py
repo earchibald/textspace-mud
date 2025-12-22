@@ -83,17 +83,25 @@ class ScriptEngine:
         else:
             bot = self.server.bots.get(bot_name)
             if bot:
-                self.server.send_to_room(bot.room_id, f"{bot.name} says: {message}")
-                # Also broadcast to web users in the same room
+                # Send message to all web users in the same room
+                message_text = f"{bot.name} says: {message}"
                 for web_user in self.server.web_users.values():
                     if web_user.room_id == bot.room_id:
-                        self.server.socketio.emit('message', {'text': f'{bot.name} says: {message}'}, room=web_user.session_id)
+                        self.server.socketio.emit('message', {'text': message_text}, room=web_user.session_id)
     
     async def _move(self, bot_name: str, room_id: str):
         """Move bot to a different room"""
         bot = self.server.bots.get(bot_name)
         if bot and room_id in self.server.rooms:
+            old_room = bot.room_id
             bot.room_id = room_id
+            
+            # Announce the move to users in both rooms
+            for web_user in self.server.web_users.values():
+                if web_user.room_id == old_room:
+                    self.server.socketio.emit('message', {'text': f'{bot.name} leaves the room.'}, room=web_user.session_id)
+                elif web_user.room_id == room_id:
+                    self.server.socketio.emit('message', {'text': f'{bot.name} enters the room.'}, room=web_user.session_id)
     
     async def _wait(self, bot_name: str, seconds: str):
         """Wait for specified seconds"""
@@ -131,7 +139,9 @@ class ScriptEngine:
     
     async def _broadcast(self, bot_name: str, message: str):
         """Broadcast message to all users"""
-        self.server.send_to_all(f"[{bot_name}] {message}")
+        message_text = f"[{bot_name}] {message}"
+        for web_user in self.server.web_users.values():
+            self.server.socketio.emit('message', {'text': message_text}, room=web_user.session_id)
     
     async def _random_say(self, bot_name: str, messages: str):
         """Say one of several random messages: random_say msg1|msg2|msg3"""

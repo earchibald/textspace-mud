@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.11"
+VERSION = "2.0.13"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -189,13 +189,22 @@ class TextSpaceServer:
         def api_get_config(config_type):
             try:
                 if config_type == 'rooms':
-                    return jsonify({'rooms': {k: v.__dict__ for k, v in self.rooms.items()}})
+                    # Read from file instead of objects
+                    with open('rooms.yaml', 'r') as f:
+                        data = yaml.safe_load(f.read())
+                    return jsonify(data)
                 elif config_type == 'bots':
-                    return jsonify({'bots': {k: v.__dict__ for k, v in self.bots.items()}})
+                    with open('bots.yaml', 'r') as f:
+                        data = yaml.safe_load(f.read())
+                    return jsonify(data)
                 elif config_type == 'items':
-                    return jsonify({'items': {k: v.__dict__ for k, v in self.items.items()}})
+                    with open('items.yaml', 'r') as f:
+                        data = yaml.safe_load(f.read())
+                    return jsonify(data)
                 elif config_type == 'scripts':
-                    return jsonify({'scripts': self.scripts})
+                    with open('scripts.yaml', 'r') as f:
+                        data = yaml.safe_load(f.read())
+                    return jsonify(data)
                 else:
                     return jsonify({'error': 'Invalid config type'}), 400
             except Exception as e:
@@ -207,6 +216,10 @@ class TextSpaceServer:
                 data = request.get_json()
                 if not data:
                     return jsonify({'error': 'No data provided'}), 400
+                
+                # Validate config type
+                if config_type not in ['rooms', 'bots', 'items', 'scripts']:
+                    return jsonify({'error': 'Invalid config type'}), 400
                 
                 # Create backup and update
                 import shutil
@@ -227,9 +240,14 @@ class TextSpaceServer:
                 elif config_type == 'scripts':
                     self.load_scripts()
                 
-                return jsonify({'success': True, 'message': f'{config_type} configuration updated', 'backup': backup_file})
+                return jsonify({
+                    'success': True, 
+                    'message': f'{config_type} configuration updated', 
+                    'backup': backup_file
+                })
                     
             except Exception as e:
+                logger.error(f"Config update error: {str(e)}")
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/version', methods=['POST'])

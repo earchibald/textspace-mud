@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import requests
+import subprocess
 import yaml
 import logging
 import websocket
@@ -23,13 +24,18 @@ import mcp.server.stdio
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("textspace-remote-mcp")
 
+# Force restart by adding timestamp
+# Last updated: 2025-12-21 20:44:55 - Unified remote-only MCP server
+
 # Initialize MCP server
 server = Server("textspace-remote-mcp")
 
 class RemoteTextSpaceManager:
     """Remote TextSpace server management via REST API"""
     
-    def __init__(self, base_url: str = "https://textspace-mud-production.up.railway.app"):
+    def __init__(self, base_url: str = None):
+        if base_url is None:
+            base_url = os.getenv("TEXTSPACE_BASE_URL", "https://exciting-liberation-production.up.railway.app")
         self.base_url = base_url.rstrip('/')
         self.ws_connection = None
         self.ws_messages = []
@@ -510,6 +516,24 @@ async def list_tools() -> List[Tool]:
                 "properties": {},
                 "required": []
             }
+        ),
+        Tool(
+            name="server_start",
+            description="Start the TextSpace server via Railway deployment",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        Tool(
+            name="server_stop",
+            description="Stop the TextSpace server via Railway",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
         )
     ]
 
@@ -653,6 +677,62 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
                 type="text",
                 text=f"Error getting config info: {str(e)}"
             )]
+    
+    elif name == "server_start":
+        try:
+            result = subprocess.run(
+                ["railway", "deployment", "up"],
+                cwd="/Users/earchibald/scratch/006-mats",
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            
+            if result.returncode == 0:
+                # Wait for server to be ready
+                await asyncio.sleep(30)
+                status = manager.get_server_status()
+                if status.get("running"):
+                    return [TextContent(
+                        type="text",
+                        text=f"Server started successfully via Railway. Version: {status.get('version', 'unknown')}"
+                    )]
+                else:
+                    return [TextContent(
+                        type="text", 
+                        text="Deployment initiated but server not yet responding"
+                    )]
+            else:
+                return [TextContent(
+                    type="text",
+                    text=f"Failed to start server: {result.stderr}"
+                )]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error starting server: {str(e)}")]
+    
+    elif name == "server_stop":
+        try:
+            # Railway doesn't have a direct stop command, but we can scale to 0
+            result = subprocess.run(
+                ["railway", "service", "scale", "--replicas", "0"],
+                cwd="/Users/earchibald/scratch/006-mats", 
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode == 0:
+                return [TextContent(
+                    type="text",
+                    text="Server stopped via Railway (scaled to 0 replicas)"
+                )]
+            else:
+                return [TextContent(
+                    type="text",
+                    text=f"Failed to stop server: {result.stderr}"
+                )]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error stopping server: {str(e)}")]
     
     else:
         return [TextContent(

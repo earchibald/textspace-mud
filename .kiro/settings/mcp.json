@@ -1,11 +1,4 @@
 {
   "mcpServers": {
-    "textspace": {
-      "command": "python3",
-      "args": ["/Users/earchibald/scratch/006-mats/textspace_mcp_server.py"],
-      "env": {
-        "TEXTSPACE_PROJECT_PATH": "/Users/earchibald/scratch/006-mats"
-      }
-    }
   }
 }

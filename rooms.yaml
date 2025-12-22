@@ -13,8 +13,7 @@ rooms:
       garden: garden
     name: The Greenhouse
   library:
-    description: Tall shelves filled with books of all kinds. A cozy reading nook
-      sits in the corner.
+    description: Tall shelves filled with books of all kinds. A cozy reading nook sits in the corner.
     exits:
       study: study
       west: lobby
@@ -23,8 +22,7 @@ rooms:
     - story_scroll
     name: The Library
   lobby:
-    description: A welcoming entrance hall with soft lighting. Doors lead in various
-      directions.
+    description: A welcoming entrance hall with soft lighting. Doors lead in various directions.
     exits:
       east: library
       north: garden
@@ -33,7 +31,7 @@ rooms:
     - treasure_chest
     name: The Lobby
   mcp_test_room:
-    description: A room added via Remote MCP Server
+    description: A room added via Remote MCP Server - UPDATED
     exits:
       lobby: lobby
     items: []
@@ -44,8 +42,7 @@ rooms:
       north: lobby
     name: The Playground
   study:
-    description: A quiet room with desks and learning materials. Perfect for focused
-      activities.
+    description: A quiet room with desks and learning materials. Perfect for focused activities.
     exits:
       library: library
     name: The Study Room

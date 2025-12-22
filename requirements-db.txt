@@ -1,5 +1,0 @@
-# Database backend dependencies (optional - for production use)
-# SQLite is built into Python, no additional dependencies needed
-bcrypt>=4.0.0        # Password hashing
-python-dotenv>=1.0.0 # Environment variable management
-gunicorn>=21.2.0     # Production WSGI server

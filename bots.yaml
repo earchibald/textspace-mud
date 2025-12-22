@@ -59,6 +59,7 @@ bots:
     name: "Curious Wanderer"
     room: "lobby"
     description: "A restless bot that explores the space, always moving to new places."
+    startup_script: "wanderer_roam"
     responses:
       - trigger: ["hello", "hi", "wanderer"]
         response: "Hello! I'm just passing through. I love exploring new places!"

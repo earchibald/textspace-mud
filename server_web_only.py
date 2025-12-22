@@ -14,12 +14,26 @@ from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 from config_manager import ConfigManager
+from functools import wraps
 
 # Version tracking
 VERSION = "2.0.25"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
+
+# IP Whitelist for API endpoints
+API_WHITELIST = ["98.33.93.100"]
+
+def require_whitelisted_ip(f):
+    """Decorator to restrict API access to whitelisted IPs"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+        if client_ip not in API_WHITELIST:
+            return jsonify({"error": "Access denied"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Set up logging
 logging.basicConfig(
@@ -190,8 +204,9 @@ class TextSpaceServer:
         def index():
             return render_template('index.html', server_name=SERVER_NAME)
         
-        # REST API routes
+        # REST API routes (IP restricted)
         @self.app.route('/api/status', methods=['GET'])
+        @require_whitelisted_ip
         def api_status():
             return jsonify({
                 'running': True,
@@ -201,7 +216,24 @@ class TextSpaceServer:
                 'timestamp': datetime.now().isoformat()
             })
         
+        @self.app.route('/api/restart', methods=['POST'])
+        @require_whitelisted_ip
+        def api_restart():
+            logger.info("Server restart requested via API")
+            # In a production environment, this would trigger a graceful restart
+            # For now, we'll just return success
+            return jsonify({"message": "Server restart initiated", "status": "success"})
+        
+        @self.app.route('/api/shutdown', methods=['POST'])
+        @require_whitelisted_ip
+        def api_shutdown():
+            logger.info("Server shutdown requested via API")
+            # In a production environment, this would trigger a graceful shutdown
+            # For now, we'll just return success
+            return jsonify({"message": "Server shutdown initiated", "status": "success"})
+        
         @self.app.route('/api/config/<config_type>', methods=['GET'])
+        @require_whitelisted_ip
         def api_get_config(config_type):
             try:
                 if config_type == 'rooms':
@@ -227,6 +259,7 @@ class TextSpaceServer:
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/config/<config_type>', methods=['POST'])
+        @require_whitelisted_ip
         def api_update_config(config_type):
             try:
                 data = request.get_json()
@@ -260,6 +293,7 @@ class TextSpaceServer:
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/version', methods=['POST'])
+        @require_whitelisted_ip
         def api_increment_version():
             try:
                 # Read current version
@@ -290,6 +324,7 @@ class TextSpaceServer:
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/logs', methods=['GET'])
+        @require_whitelisted_ip
         def api_get_logs():
             try:
                 lines = request.args.get('lines', 50, type=int)
@@ -301,6 +336,7 @@ class TextSpaceServer:
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/config/reset/<config_type>', methods=['POST'])
+        @require_whitelisted_ip
         def api_reset_config(config_type):
             try:
                 data = request.get_json()

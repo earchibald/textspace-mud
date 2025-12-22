@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 
 # Version tracking
-VERSION = "2.0.13"
+VERSION = "2.0.16"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -231,14 +231,7 @@ class TextSpaceServer:
                     yaml.dump(data, f, default_flow_style=False)
                 
                 # Reload configuration
-                if config_type == 'rooms':
-                    self.load_rooms()
-                elif config_type == 'bots':
-                    self.load_bots()
-                elif config_type == 'items':
-                    self.load_items()
-                elif config_type == 'scripts':
-                    self.load_scripts()
+                self.load_data()  # Reload all data
                 
                 return jsonify({
                     'success': True, 

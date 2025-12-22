@@ -32,12 +32,6 @@ rooms:
     items:
     - treasure_chest
     name: The Lobby
-  mcp_test_room:
-    description: A room added via Remote MCP Server
-    exits:
-      lobby: lobby
-    items: []
-    name: MCP Test Room
   playground:
     description: A fun space with colorful toys and games. Laughter echoes here.
     exits:
@@ -49,3 +43,9 @@ rooms:
     exits:
       library: library
     name: The Study Room
+  test_room:
+    description: A test room added via Remote MCP
+    exits:
+      lobby: lobby
+    items: []
+    name: Test Room

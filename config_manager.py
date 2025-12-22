@@ -18,8 +18,14 @@ class ConfigManager:
         self.example_path = Path(example_path)
         self.config_types = ["rooms", "bots", "items", "scripts"]
         
-        # Ensure directories exist
-        self.persistent_path.mkdir(parents=True, exist_ok=True)
+        # Ensure directories exist (with error handling)
+        try:
+            self.persistent_path.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            # Fallback to local directory if persistent path fails
+            self.persistent_path = Path("./data")
+            self.persistent_path.mkdir(parents=True, exist_ok=True)
+            
         self.example_path.mkdir(parents=True, exist_ok=True)
     
     def get_config_path(self, config_type: str, persistent: bool = True) -> Path:

@@ -1,21 +1,28 @@
 #!/bin/bash
 # Railway startup script for TextSpace server
-# Handles persistent configuration setup
 
 echo "🚀 Starting TextSpace Server on Railway"
 
-# Check if we're on Railway
+# Check if we're on Railway and try to set up persistent config
 if [ "$RAILWAY_ENVIRONMENT" ]; then
-    echo "📁 Setting up persistent configuration..."
+    echo "📁 Attempting to set up persistent configuration..."
     
-    # Initialize configuration manager
-    python3 config_manager.py init
+    # Try to initialize configuration manager (non-blocking)
+    python3 -c "
+try:
+    from config_manager import ConfigManager
+    manager = ConfigManager()
+    manager.initialize_persistent_config()
+    print('✅ Persistent configuration initialized')
+except Exception as e:
+    print(f'⚠️ Config manager failed: {e}')
+    print('Continuing with default configuration...')
+" || echo "⚠️ Config setup failed, using defaults"
     
-    echo "✅ Persistent configuration ready"
 else
     echo "🏠 Running in local development mode"
 fi
 
 # Start the server
 echo "🌐 Starting web server..."
-python3 server_web_only.py
+exec python3 server_web_only.py

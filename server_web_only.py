@@ -16,7 +16,7 @@ from script_engine import ScriptEngine
 from config_manager import ConfigManager
 
 # Version tracking
-VERSION = "2.0.21"
+VERSION = "2.0.22"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -104,12 +104,16 @@ class TextSpaceServer:
         self.web_sessions = {}
         
         # Configuration manager
-        self.config_manager = ConfigManager()
-        
-        # Initialize persistent config on Railway
-        if os.getenv('RAILWAY_ENVIRONMENT'):
-            self.config_manager.initialize_persistent_config()
-            self.config_manager.create_symlinks()
+        try:
+            self.config_manager = ConfigManager()
+            
+            # Initialize persistent config on Railway
+            if os.getenv('RAILWAY_ENVIRONMENT'):
+                self.config_manager.initialize_persistent_config()
+                self.config_manager.create_symlinks()
+        except Exception as e:
+            logger.warning(f"Config manager initialization failed: {e}")
+            self.config_manager = None
         
         # Script engine
         self.script_engine = ScriptEngine(self)
@@ -309,14 +313,17 @@ class TextSpaceServer:
                         'warning': 'This will PERMANENTLY reset the configuration to default examples'
                     }), 400
                 
-                result = self.config_manager.reset_config_with_confirmation(config_type, confirmation_code)
-                
-                if result['success']:
-                    # Reload server data after reset
-                    self.load_data()
-                    return jsonify(result)
+                if self.config_manager:
+                    result = self.config_manager.reset_config_with_confirmation(config_type, confirmation_code)
+                    
+                    if result['success']:
+                        # Reload server data after reset
+                        self.load_data()
+                        return jsonify(result)
+                    else:
+                        return jsonify(result), 400
                 else:
-                    return jsonify(result), 400
+                    return jsonify({'error': 'Config manager not available'}), 500
                     
             except Exception as e:
                 logger.error(f"Config reset error: {str(e)}")
@@ -325,8 +332,11 @@ class TextSpaceServer:
         @self.app.route('/api/config/info', methods=['GET'])
         def api_config_info():
             try:
-                info = self.config_manager.get_config_info()
-                return jsonify(info)
+                if self.config_manager:
+                    info = self.config_manager.get_config_info()
+                    return jsonify(info)
+                else:
+                    return jsonify({'error': 'Config manager not available', 'fallback_mode': True})
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         

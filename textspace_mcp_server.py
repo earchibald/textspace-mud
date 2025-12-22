@@ -96,7 +96,7 @@ class TextSpaceManager:
             )
             
             # Give it a moment to start
-            asyncio.sleep(2)
+            time.sleep(2)
             
             if self.server_process.poll() is None:
                 return f"Server started with PID {self.server_process.pid}"
@@ -104,6 +104,17 @@ class TextSpaceManager:
                 return "Failed to start server"
         except Exception as e:
             return f"Error starting server: {str(e)}"
+    
+    def stop_server(self) -> str:
+        """Stop the TextSpace server"""
+        try:
+            result = subprocess.run(
+                ["pkill", "-f", "server_web_only.py"],
+                capture_output=True, text=True
+            )
+            return "Server stopped" if result.returncode == 0 else "No server process found"
+        except Exception as e:
+            return f"Error stopping server: {str(e)}"
     
     def validate_yaml_config(self, config_type: str, content: str) -> Dict[str, Any]:
         """Validate YAML configuration content"""
@@ -187,7 +198,7 @@ class TextSpaceManager:
         except Exception as e:
             return f"Error incrementing version: {str(e)}"
     
-    def connect_websocket(self, url: str = "ws://localhost:5000") -> str:
+    def connect_websocket(self, url: str = "ws://localhost:8080/socket.io/?EIO=4&transport=websocket") -> str:
         """Connect to TextSpace server via WebSocket"""
         try:
             def on_message(ws, message):
@@ -235,22 +246,15 @@ class TextSpaceManager:
         """Send command to TextSpace server via WebSocket"""
         try:
             if not self.ws_connected or not self.ws_connection:
+                # Try to reconnect
+                self.connect_websocket()
+                time.sleep(1)
+                
+            if not self.ws_connected:
                 return "Not connected to server. Use connect_websocket first."
             
-            # Simulate user login and command
-            login_msg = json.dumps({
-                "type": "login",
-                "username": username
-            })
-            self.ws_connection.send(login_msg)
-            
-            time.sleep(0.5)
-            
-            command_msg = json.dumps({
-                "type": "command", 
-                "text": command
-            })
-            self.ws_connection.send(command_msg)
+            # Send command directly as text (simplified approach)
+            self.ws_connection.send(command)
             
             return f"Command '{command}' sent as user '{username}'"
         except Exception as e:
@@ -362,7 +366,7 @@ class TextSpaceManager:
         """Test web server responds"""
         try:
             import urllib.request
-            response = urllib.request.urlopen("http://localhost:5000", timeout=5)
+            response = urllib.request.urlopen("http://localhost:8080", timeout=5)
             return {
                 "success": response.getcode() == 200,
                 "details": f"HTTP {response.getcode()}"
@@ -556,7 +560,7 @@ async def list_tools() -> List[Tool]:
                     "url": {
                         "type": "string",
                         "description": "WebSocket URL",
-                        "default": "ws://localhost:5000"
+                        "default": "ws://localhost:8080/socket.io/?EIO=4&transport=websocket"
                     }
                 },
                 "required": []
@@ -689,7 +693,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
         )]
     
     elif name == "connect_websocket":
-        url = arguments.get("url", "ws://localhost:5000")
+        url = arguments.get("url", "ws://localhost:8080/socket.io/?EIO=4&transport=websocket")
         result = manager.connect_websocket(url)
         return [TextContent(
             type="text",

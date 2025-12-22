@@ -90,51 +90,31 @@ scripts:
   wanderer_roam:
     bot: "wanderer"
     script: |
-      # Wandering bot that moves between rooms every 10-20 seconds
-      function wander_cycle {
-        # Wait 10-20 seconds (randomized by using different waits)
-        wait 10
-        random_say *looks around thoughtfully*|*stretches and yawns*|*checks the time*
-        wait 5
+      # Wandering bot that moves every 10-20 seconds
+      function wander_loop {
+        # Random wait between 10-20 seconds
+        random_wait 10|12|15|18|20
         
-        # Move to a different room
-        move garden
-        random_say *wanders into the garden*|*arrives in the peaceful garden*|*steps into the flower-filled space*
-        wait 15
+        # Get current room and pick random exit
+        # Lobby exits: north (garden), east (library), south (playground)
+        # Garden exits: south (lobby), greenhouse (greenhouse)  
+        # Library exits: west (lobby), study (study)
+        # Study exits: library (library)
+        # Playground exits: north (lobby)
+        # Greenhouse exits: garden (garden)
+        # MCP Test Room exits: lobby (lobby)
         
-        move lobby  
-        random_say *returns to the busy lobby*|*walks back to the central hall*|*enters the welcoming entrance*
-        wait 12
+        # Move to random adjacent room
+        random_move north|east|south|west|garden|library|lobby|study|playground|greenhouse
         
-        move library
-        random_say *explores the quiet library*|*browses among the books*|*enters the scholarly space*
-        wait 18
+        # Announce arrival
+        random_say *wanders in curiously*|*arrives looking around*|*steps in with interest*|*enters exploring*
         
-        move study
-        random_say *finds the cozy study room*|*settles into the learning space*|*discovers the quiet study area*
-        wait 10
-        
-        move library
-        wait 8
-        
-        move lobby
-        random_say *back to explore more areas*|*ready for the next adventure*|*continuing the journey*
-        wait 14
-        
-        move playground
-        random_say *visits the fun playground*|*explores the recreational area*|*checks out the games and toys*
-        wait 16
-        
-        move lobby
-        wait 11
-        
-        # Continue the cycle
-        call wander_cycle
+        # Continue wandering
+        call wander_loop
       }
       
-      # Start wandering
-      say Hello everyone! I'm the Curious Wanderer, and I love exploring!
-      wait 3
-      say I'll be moving around the space - you might see me pop up anywhere!
+      # Start the wandering loop
+      say I'm starting my journey through the space!
       wait 2
-      call wander_cycle
+      call wander_loop

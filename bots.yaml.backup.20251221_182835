@@ -54,15 +54,3 @@ bots:
         response: "I can trade items! Say 'trade magic book' if you have one to exchange."
       - trigger: ["help", "what", "items"]
         response: "I have special items to trade. Bring me interesting things!"
-
-  wanderer:
-    name: "Curious Wanderer"
-    room: "lobby"
-    description: "A restless bot that explores the space, always moving to new places."
-    responses:
-      - trigger: ["hello", "hi", "wanderer"]
-        response: "Hello! I'm just passing through. I love exploring new places!"
-      - trigger: ["where", "going", "travel"]
-        response: "I never stay in one place too long. There's so much to see!"
-      - trigger: ["stop", "stay", "wait"]
-        response: "Sorry, I can't stay still! Adventure calls!"

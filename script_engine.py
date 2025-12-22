@@ -72,18 +72,18 @@ class ScriptEngine:
             # Find which user used the item (simplified - could be enhanced)
             for user in self.server.users.values():
                 if item_id in user.inventory:
-                    await self.server.broadcast_to_room(user.room_id, message)
+                    await self.server.send_to_room(user.room_id, message)
                     break
             # Also check web users
             for web_user in self.server.web_users.values():
                 if item_id in web_user.inventory:
                     self.server.socketio.emit('message', {'text': message}, room=web_user.room_id)
-                    await self.server.broadcast_to_room(web_user.room_id, message, exclude=web_user.name)
+                    self.server.send_to_room(web_user.room_id, message, exclude_user=web_user.name)
                     break
         else:
             bot = self.server.bots.get(bot_name)
             if bot:
-                await self.server.broadcast_to_room(bot.room_id, f"{bot.name} says: {message}")
+                self.server.send_to_room(bot.room_id, f"{bot.name} says: {message}")
                 # Also broadcast to web users in the same room
                 for web_user in self.server.web_users.values():
                     if web_user.room_id == bot.room_id:
@@ -131,7 +131,7 @@ class ScriptEngine:
     
     async def _broadcast(self, bot_name: str, message: str):
         """Broadcast message to all users"""
-        await self.server.broadcast_global(f"[{bot_name}] {message}")
+        self.server.send_to_all(f"[{bot_name}] {message}")
     
     async def _random_say(self, bot_name: str, messages: str):
         """Say one of several random messages: random_say msg1|msg2|msg3"""

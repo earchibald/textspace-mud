@@ -482,6 +482,34 @@ async def list_tools() -> List[Tool]:
                 },
                 "required": []
             }
+        ),
+        Tool(
+            name="reset_config",
+            description="Reset configuration to examples (REQUIRES DOUBLE CONFIRMATION)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "config_type": {
+                        "type": "string",
+                        "enum": ["rooms", "bots", "items", "scripts"],
+                        "description": "Type of configuration to reset"
+                    },
+                    "confirmation_code": {
+                        "type": "string",
+                        "description": "Required confirmation code (get from first call without code)"
+                    }
+                },
+                "required": ["config_type"]
+            }
+        ),
+        Tool(
+            name="config_info",
+            description="Get information about configuration storage and status",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
         )
     ]
 
@@ -569,6 +597,62 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
             type="text",
             text=json.dumps(results, indent=2)
         )]
+    
+    elif name == "reset_config":
+        config_type = arguments["config_type"]
+        confirmation_code = arguments.get("confirmation_code", "")
+        
+        try:
+            response = requests.post(
+                f"{manager.base_url}/api/config/reset/{config_type}",
+                json={"confirmation_code": confirmation_code},
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return [TextContent(
+                    type="text",
+                    text=f"✅ Config reset successful: {result.get('message', 'Reset completed')}"
+                )]
+            else:
+                error_data = response.json()
+                if 'required_code' in error_data:
+                    return [TextContent(
+                        type="text",
+                        text=f"⚠️ CONFIRMATION REQUIRED\n\nTo reset {config_type} configuration, use:\nreset_config with confirmation_code: {error_data['required_code']}\n\n🚨 WARNING: {error_data.get('warning', 'This action cannot be undone!')}"
+                    )]
+                else:
+                    return [TextContent(
+                        type="text",
+                        text=f"❌ Reset failed: {error_data.get('error', 'Unknown error')}"
+                    )]
+        except Exception as e:
+            return [TextContent(
+                type="text",
+                text=f"Error resetting config: {str(e)}"
+            )]
+    
+    elif name == "config_info":
+        try:
+            response = requests.get(f"{manager.base_url}/api/config/info", timeout=10)
+            if response.status_code == 200:
+                info = response.json()
+                return [TextContent(
+                    type="text",
+                    text=json.dumps(info, indent=2)
+                )]
+            else:
+                return [TextContent(
+                    type="text",
+                    text=f"Error getting config info: HTTP {response.status_code}"
+                )]
+        except Exception as e:
+            return [TextContent(
+                type="text",
+                text=f"Error getting config info: {str(e)}"
+            )]
     
     else:
         return [TextContent(

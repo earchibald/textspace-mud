@@ -13,9 +13,10 @@ from typing import Dict, Optional, List
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
+from config_manager import ConfigManager
 
 # Version tracking
-VERSION = "2.0.20"
+VERSION = "2.0.21"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -101,6 +102,14 @@ class TextSpaceServer:
         self.scripts = {}
         self.web_users = {}
         self.web_sessions = {}
+        
+        # Configuration manager
+        self.config_manager = ConfigManager()
+        
+        # Initialize persistent config on Railway
+        if os.getenv('RAILWAY_ENVIRONMENT'):
+            self.config_manager.initialize_persistent_config()
+            self.config_manager.create_symlinks()
         
         # Script engine
         self.script_engine = ScriptEngine(self)
@@ -281,6 +290,43 @@ class TextSpaceServer:
                     log_lines = f.readlines()
                 recent_logs = ''.join(log_lines[-lines:])
                 return jsonify({'logs': recent_logs})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/config/reset/<config_type>', methods=['POST'])
+        def api_reset_config(config_type):
+            try:
+                data = request.get_json()
+                confirmation_code = data.get('confirmation_code', '')
+                
+                if not confirmation_code:
+                    # Return required confirmation code
+                    from datetime import datetime
+                    required_code = f"RESET_{config_type.upper()}_{datetime.now().strftime('%Y%m%d')}"
+                    return jsonify({
+                        'error': 'Confirmation code required',
+                        'required_code': required_code,
+                        'warning': 'This will PERMANENTLY reset the configuration to default examples'
+                    }), 400
+                
+                result = self.config_manager.reset_config_with_confirmation(config_type, confirmation_code)
+                
+                if result['success']:
+                    # Reload server data after reset
+                    self.load_data()
+                    return jsonify(result)
+                else:
+                    return jsonify(result), 400
+                    
+            except Exception as e:
+                logger.error(f"Config reset error: {str(e)}")
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/config/info', methods=['GET'])
+        def api_config_info():
+            try:
+                info = self.config_manager.get_config_info()
+                return jsonify(info)
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         

@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("textspace-remote-mcp")
 
 # Force restart by adding timestamp
-# Last updated: 2025-12-21 20:44:55 - Unified remote-only MCP server
+# Last updated: 2025-12-21 22:16:45 - Changed to API-based server control
 
 # Initialize MCP server
 server = Server("textspace-remote-mcp")
@@ -518,21 +518,18 @@ async def list_tools() -> List[Tool]:
             }
         ),
         Tool(
-            name="server_start",
-            description="Start the TextSpace server via Railway deployment",
+            name="server_control",
+            description="Start or stop the TextSpace server via API",
             inputSchema={
                 "type": "object",
-                "properties": {},
-                "required": []
-            }
-        ),
-        Tool(
-            name="server_stop",
-            description="Stop the TextSpace server via Railway",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["start", "stop"],
+                        "description": "Action to perform: start or stop the server"
+                    }
+                },
+                "required": ["action"]
             }
         )
     ]
@@ -678,61 +675,48 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
                 text=f"Error getting config info: {str(e)}"
             )]
     
-    elif name == "server_start":
-        try:
-            result = subprocess.run(
-                ["railway", "deployment", "up"],
-                cwd="/Users/earchibald/scratch/006-mats",
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
-            
-            if result.returncode == 0:
-                # Wait for server to be ready
-                await asyncio.sleep(30)
-                status = manager.get_server_status()
-                if status.get("running"):
+    elif name == "server_control":
+        action = arguments.get("action")
+        
+        if action == "start":
+            try:
+                # Send restart request to server API
+                response = requests.post(f"{manager.base_url}/api/restart", timeout=10)
+                if response.status_code == 200:
                     return [TextContent(
                         type="text",
-                        text=f"Server started successfully via Railway. Version: {status.get('version', 'unknown')}"
+                        text="Server restart initiated via API"
                     )]
                 else:
                     return [TextContent(
-                        type="text", 
-                        text="Deployment initiated but server not yet responding"
+                        type="text",
+                        text=f"Failed to restart server: HTTP {response.status_code}"
                     )]
-            else:
-                return [TextContent(
-                    type="text",
-                    text=f"Failed to start server: {result.stderr}"
-                )]
-        except Exception as e:
-            return [TextContent(type="text", text=f"Error starting server: {str(e)}")]
-    
-    elif name == "server_stop":
-        try:
-            # Railway doesn't have a direct stop command, but we can scale to 0
-            result = subprocess.run(
-                ["railway", "service", "scale", "--replicas", "0"],
-                cwd="/Users/earchibald/scratch/006-mats", 
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if result.returncode == 0:
-                return [TextContent(
-                    type="text",
-                    text="Server stopped via Railway (scaled to 0 replicas)"
-                )]
-            else:
-                return [TextContent(
-                    type="text",
-                    text=f"Failed to stop server: {result.stderr}"
-                )]
-        except Exception as e:
-            return [TextContent(type="text", text=f"Error stopping server: {str(e)}")]
+            except Exception as e:
+                return [TextContent(type="text", text=f"Error restarting server: {str(e)}")]
+        
+        elif action == "stop":
+            try:
+                # Send shutdown request to server API
+                response = requests.post(f"{manager.base_url}/api/shutdown", timeout=10)
+                if response.status_code == 200:
+                    return [TextContent(
+                        type="text",
+                        text="Server shutdown initiated via API"
+                    )]
+                else:
+                    return [TextContent(
+                        type="text",
+                        text=f"Failed to shutdown server: HTTP {response.status_code}"
+                    )]
+            except Exception as e:
+                return [TextContent(type="text", text=f"Error shutting down server: {str(e)}")]
+        
+        else:
+            return [TextContent(
+                type="text",
+                text=f"Invalid action: {action}. Use 'start' or 'stop'"
+            )]
     
     else:
         return [TextContent(

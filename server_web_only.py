@@ -17,7 +17,7 @@ from config_manager import ConfigManager
 from functools import wraps
 
 # Version tracking
-VERSION = "2.0.25"
+VERSION = "2.0.26"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")

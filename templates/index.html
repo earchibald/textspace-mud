@@ -121,6 +121,7 @@
         let connectionStatus = 'connecting';
         let commandHistory = [];
         let historyIndex = -1;
+        let currentVersion = null;
 
         socket.on('connect', () => {
             connectionStatus = 'connected';
@@ -151,7 +152,17 @@
             connectionStatus = 'connected';
             addMessage('✅ Reconnected to server!');
             updateConnectionStatus();
+            
+            // Check if server version changed during reconnect
+            checkVersionUpdate();
         });
+
+        function checkVersionUpdate() {
+            // Send a version check command to get current server version
+            if (loggedIn) {
+                socket.emit('command', {command: 'version'});
+            }
+        }
 
         socket.on('reconnect_failed', () => {
             connectionStatus = 'offline';
@@ -221,9 +232,31 @@
         socket.on('message', (data) => {
             addMessage(data.text);
             
+            // Check if this is a version response and handle version updates
+            checkForVersionUpdate(data.text);
+            
             // Check if this is a room description and update room info box
             updateRoomInfo(data.text);
         });
+
+        function checkForVersionUpdate(text) {
+            // Check if this is a version response
+            const versionMatch = text.match(/The Text Spot v([\d.]+)/);
+            if (versionMatch) {
+                const serverVersion = versionMatch[1];
+                
+                if (currentVersion === null) {
+                    // First time seeing version, store it
+                    currentVersion = serverVersion;
+                } else if (currentVersion !== serverVersion) {
+                    // Version changed, reload the page
+                    addMessage('🔄 Server version updated! Reloading page...');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }
+            }
+        }
 
         function addMessage(text) {
             const output = document.getElementById('output');

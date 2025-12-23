@@ -485,7 +485,11 @@ class TextSpaceServer:
         # Handle ambiguous commands
         if cmd.startswith("AMBIGUOUS:"):
             matches = cmd.split(":")[1].split(",")
-            return f"Ambiguous command. Did you mean: {', '.join(matches)}?"
+            # If only 2 matches (likely aliases), choose the first one
+            if len(matches) == 2:
+                cmd = matches[0]
+            else:
+                return f"Ambiguous command. Did you mean: {', '.join(matches)}?"
         
         # Basic commands
         if cmd == "help":

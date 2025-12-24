@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.7.0"
+VERSION = "2.7.1"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -467,52 +467,57 @@ class TextSpaceServer:
                 if username in self.web_users:
                     web_user = self.web_users[username]
                     logger.info(f"Found user {username}, admin={web_user.admin}")
+                else:
+                    # Create temporary user context for completion
+                    admin = username == "admin" or username == "tester-admin"
+                    web_user = WebUser(name=username, session_id="", admin=admin, room_id="lobby")
+                    logger.info(f"Created temporary user context for {username}, admin={admin}")
+                
+                # Parse the full text to determine if we're completing a command or argument
+                words = full_text.strip().split()
+                logger.info(f"Parsed words: {words}, length: {len(words)}")
+                
+                # If we have a space at the end or multiple words, we're completing arguments
+                is_argument_completion = len(words) > 1 or (full_text.endswith(' ') and len(words) >= 1)
+                logger.info(f"Is argument completion: {is_argument_completion}")
+                
+                if not is_argument_completion:
+                    # Completing command name
+                    logger.info("Completing command name")
                     
-                    # Parse the full text to determine if we're completing a command or argument
-                    words = full_text.strip().split()
-                    logger.info(f"Parsed words: {words}, length: {len(words)}")
-                    
-                    # If we have a space at the end or multiple words, we're completing arguments
-                    is_argument_completion = len(words) > 1 or (full_text.endswith(' ') and len(words) >= 1)
-                    logger.info(f"Is argument completion: {is_argument_completion}")
-                    
-                    if not is_argument_completion:
-                        # Completing command name
-                        logger.info("Completing command name")
+                    # For empty partial, show formatted help-style output
+                    if not partial:
+                        # Create organized command help
+                        help_text = "Available Commands:\n\n"
+                        help_text += "  Basic:        help, version, whoami, who, motd, quit (logout)\n"
+                        help_text += "  Look:         look (l, examine, exam) [target]\n"
+                        help_text += "  Items:        get (take) <item>, drop <item>, use <item>\n"
+                        help_text += "  Interact:     open <item>, close <item>\n"
+                        help_text += "  Chat:         say <message>, whisper <target> <message>\n"
+                        help_text += "  Movement:     go (move, g) <direction>, north (n), south (s), east (e), west (w)\n"
+                        help_text += "  Inventory:    inventory (i)\n"
                         
-                        # For empty partial, show formatted help-style output
-                        if not partial:
-                            # Create organized command help
-                            help_text = "Available Commands:\n\n"
-                            help_text += "  Basic:        help, version, whoami, who, motd, quit (logout)\n"
-                            help_text += "  Look:         look (l, examine, exam) [target]\n"
-                            help_text += "  Items:        get (take) <item>, drop <item>, use <item>\n"
-                            help_text += "  Interact:     open <item>, close <item>\n"
-                            help_text += "  Chat:         say <message>, whisper <target> <message>\n"
-                            help_text += "  Movement:     go (move, g) <direction>, north (n), south (s), east (e), west (w)\n"
-                            help_text += "  Inventory:    inventory (i)\n"
+                        if web_user.admin:
+                            help_text += "\n  Admin:        teleport [room], motd [message]"
+                        
+                        completions = [{
+                            'name': 'help_display',
+                            'usage': help_text,
+                            'aliases': [],
+                            'admin_only': False,
+                            'type': 'help'
+                        }]
+                    else:
+                        # Normal partial matching
+                        for cmd_name, cmd in self.command_registry.commands.items():
+                            # Check admin permissions
+                            if cmd.admin_only and not web_user.admin:
+                                continue
                             
-                            if web_user.admin:
-                                help_text += "\n  Admin:        teleport [room], motd [message]"
-                            
-                            completions = [{
-                                'name': 'help_display',
-                                'usage': help_text,
-                                'aliases': [],
-                                'admin_only': False,
-                                'type': 'help'
-                            }]
-                        else:
-                            # Normal partial matching
-                            for cmd_name, cmd in self.command_registry.commands.items():
-                                # Check admin permissions
-                                if cmd.admin_only and not web_user.admin:
-                                    continue
-                                
-                                # Check if command matches partial
-                                if cmd_name.startswith(partial):
-                                    completions.append({
-                                        'name': cmd_name,
+                            # Check if command matches partial
+                            if cmd_name.startswith(partial):
+                                completions.append({
+                                    'name': cmd_name,
                                         'usage': cmd.usage,
                                         'aliases': cmd.aliases,
                                         'admin_only': cmd.admin_only
@@ -527,50 +532,50 @@ class TextSpaceServer:
                                             'aliases': [],
                                             'admin_only': cmd.admin_only
                                         })
+                
+                else:
+                    # Completing command argument
+                    logger.info("Completing command argument")
+                    cmd_name = words[0].lower()
+                    resolved_cmd = self.resolve_command(cmd_name, web_user.admin)
+                    logger.info(f"Command: {cmd_name}, resolved: {resolved_cmd}")
                     
-                    else:
-                        # Completing command argument
-                        logger.info("Completing command argument")
-                        cmd_name = words[0].lower()
-                        resolved_cmd = self.resolve_command(cmd_name, web_user.admin)
-                        logger.info(f"Command: {cmd_name}, resolved: {resolved_cmd}")
+                    # Handle ambiguous commands
+                    if resolved_cmd.startswith("AMBIGUOUS:"):
+                        matches = resolved_cmd.split(":")[1].split(",")
+                        if len(matches) == 2:
+                            resolved_cmd = matches[0]
+                    
+                    command_def = self.command_registry.get_command(resolved_cmd)
+                    logger.info(f"Command def: {command_def}, arg_types: {command_def.arg_types if command_def else None}")
+                    
+                    if command_def and command_def.arg_types:
+                        # Determine which argument we're completing
+                        if full_text.endswith(' '):
+                            # Starting a new argument
+                            arg_index = len(words) - 1
+                        else:
+                            # Completing current argument
+                            arg_index = len(words) - 2
                         
-                        # Handle ambiguous commands
-                        if resolved_cmd.startswith("AMBIGUOUS:"):
-                            matches = resolved_cmd.split(":")[1].split(",")
-                            if len(matches) == 2:
-                                resolved_cmd = matches[0]
+                        logger.info(f"Argument index: {arg_index}")
                         
-                        command_def = self.command_registry.get_command(resolved_cmd)
-                        logger.info(f"Command def: {command_def}, arg_types: {command_def.arg_types if command_def else None}")
-                        
-                        if command_def and command_def.arg_types:
-                            # Determine which argument we're completing
-                            if full_text.endswith(' '):
-                                # Starting a new argument
-                                arg_index = len(words) - 1
-                            else:
-                                # Completing current argument
-                                arg_index = len(words) - 2
+                        if arg_index < len(command_def.arg_types):
+                            arg_type = command_def.arg_types[arg_index]
+                            logger.info(f"Argument type: {arg_type}")
+                            context_items = self.get_completion_context(username, arg_type)
+                            logger.info(f"Context items: {context_items}")
                             
-                            logger.info(f"Argument index: {arg_index}")
-                            
-                            if arg_index < len(command_def.arg_types):
-                                arg_type = command_def.arg_types[arg_index]
-                                logger.info(f"Argument type: {arg_type}")
-                                context_items = self.get_completion_context(username, arg_type)
-                                logger.info(f"Context items: {context_items}")
-                                
-                                # Filter context items by partial match
-                                for item in context_items:
-                                    if item.lower().startswith(partial):
-                                        completions.append({
-                                            'name': item,
-                                            'usage': f"{command_def.name} {item}",
-                                            'aliases': [],
-                                            'admin_only': False,
-                                            'type': 'argument'
-                                        })
+                            # Filter context items by partial match
+                            for item in context_items:
+                                if item.lower().startswith(partial):
+                                    completions.append({
+                                        'name': item,
+                                        'usage': f"{command_def.name} {item}",
+                                        'aliases': [],
+                                        'admin_only': False,
+                                        'type': 'argument'
+                                    })
                 
                 logger.info(f"Returning {len(completions)} completions")
                 return jsonify({'completions': completions})

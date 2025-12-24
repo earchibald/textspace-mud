@@ -14,10 +14,11 @@ from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 from config_manager import ConfigManager
+from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -120,6 +121,10 @@ class TextSpaceServer:
         self.web_users = {}
         self.web_sessions = {}
         
+        # Command registry
+        self.command_registry = CommandRegistry()
+        self.setup_commands()
+        
         # Configuration manager
         try:
             self.config_manager = ConfigManager()
@@ -142,6 +147,42 @@ class TextSpaceServer:
         self.setup_web_routes()
         
         logger.info("Web-only Text Space Server initialized")
+    
+    def setup_commands(self):
+        """Setup command registry with all available commands"""
+        # Basic commands
+        self.command_registry.register(Command("help", self.handle_help, usage="help"))
+        self.command_registry.register(Command("version", self.handle_version, usage="version"))
+        self.command_registry.register(Command("whoami", self.handle_whoami, usage="whoami"))
+        self.command_registry.register(Command("look", self.handle_look, usage="look", aliases=["l"]))
+        self.command_registry.register(Command("who", self.handle_who, usage="who"))
+        self.command_registry.register(Command("inventory", self.handle_inventory, usage="inventory", aliases=["i"]))
+        
+        # Communication commands
+        self.command_registry.register(Command("say", self.handle_say_cmd, args_required=1, usage="say <message>"))
+        self.command_registry.register(Command("whisper", self.handle_whisper_cmd, args_required=2, usage="whisper <target> <message>"))
+        
+        # Item commands
+        self.command_registry.register(Command("get", self.handle_get_cmd, args_required=1, usage="get <item>", aliases=["take"]))
+        self.command_registry.register(Command("drop", self.handle_drop_cmd, args_required=1, usage="drop <item>"))
+        self.command_registry.register(Command("examine", self.handle_examine_cmd, args_required=1, usage="examine <item>", aliases=["exam"]))
+        self.command_registry.register(Command("use", self.handle_use_cmd, args_required=1, usage="use <item>"))
+        self.command_registry.register(Command("open", self.handle_open_cmd, args_required=1, usage="open <item>"))
+        self.command_registry.register(Command("close", self.handle_close_cmd, args_required=1, usage="close <item>"))
+        
+        # Movement commands
+        self.command_registry.register(Command("go", self.handle_go_cmd, args_required=1, usage="go <direction>", aliases=["move", "g"]))
+        self.command_registry.register(Command("north", self.handle_north, usage="north", aliases=["n"]))
+        self.command_registry.register(Command("south", self.handle_south, usage="south", aliases=["s"]))
+        self.command_registry.register(Command("east", self.handle_east, usage="east", aliases=["e"]))
+        self.command_registry.register(Command("west", self.handle_west, usage="west", aliases=["w"]))
+        
+        # Admin commands
+        self.command_registry.register(Command("teleport", self.handle_teleport_cmd, admin_only=True, usage="teleport [room]"))
+        self.command_registry.register(Command("broadcast", self.handle_broadcast_cmd, admin_only=True, args_required=1, usage="broadcast <message>"))
+        self.command_registry.register(Command("kick", self.handle_kick_cmd, admin_only=True, args_required=1, usage="kick <username>"))
+        self.command_registry.register(Command("switchuser", self.handle_switchuser_cmd, admin_only=True, args_required=1, usage="switchuser <username>"))
+        self.command_registry.register(Command("script", self.handle_script_cmd, admin_only=True, args_required=1, usage="script <name>"))
     
     def load_data(self):
         """Load all data from YAML files"""
@@ -464,100 +505,51 @@ class TextSpaceServer:
             pass  # Handled by client-side JavaScript
     
     def process_command(self, username, command):
-        """Process user command"""
+        """Process user command using generalized command registry"""
         if username not in self.web_users:
             return "User not found"
         
         web_user = self.web_users[username]
         parts = command.split()
+        if not parts:
+            return "Please enter a command. Type 'help' for available commands."
+        
         cmd = parts[0].lower()
         args = parts[1:] if len(parts) > 1 else []
         
         # Handle quote alias for say
         if cmd.startswith('"') and len(cmd) > 1:
-            # Extract message after quote
             message = cmd[1:] + (" " + " ".join(args) if args else "")
             return self.handle_say(web_user, message.strip())
         
-        # Most-significant match command parsing
-        cmd = self.resolve_command(cmd, web_user.admin)
+        # Resolve command using existing logic
+        resolved_cmd = self.resolve_command(cmd, web_user.admin)
         
         # Handle ambiguous commands
-        if cmd.startswith("AMBIGUOUS:"):
-            matches = cmd.split(":")[1].split(",")
-            # If only 2 matches (likely aliases), choose the first one
+        if resolved_cmd.startswith("AMBIGUOUS:"):
+            matches = resolved_cmd.split(":")[1].split(",")
             if len(matches) == 2:
-                cmd = matches[0]
+                resolved_cmd = matches[0]
             else:
                 return f"Ambiguous command. Did you mean: {', '.join(matches)}?"
         
-        # Basic commands
-        if cmd == "help":
-            return self.get_help_text(web_user.admin)
-        elif cmd == "version":
-            return f"The Text Spot v{VERSION}"
-        elif cmd == "whoami":
-            admin_status = " (admin)" if web_user.admin else ""
-            return f"You are: {web_user.name}{admin_status}"
-        elif cmd == "look":
-            return self.get_room_description(web_user.room_id, username)
-        elif cmd == "who":
-            return self.get_who_list()
-        elif cmd == "inventory":
-            return self.get_inventory(web_user)
-        elif cmd == "say" and args:
-            message = " ".join(args)
-            return self.handle_say(web_user, message)
-        elif cmd == "whisper" and len(args) >= 2:
-            target = args[0]
-            message = " ".join(args[1:])
-            return self.handle_whisper(web_user, target, message)
-        elif cmd in ["get", "take"] and args:
-            item_name = " ".join(args)
-            return self.handle_get_item(web_user, item_name)
-        elif cmd == "drop" and args:
-            item_name = " ".join(args)
-            return self.handle_drop_item(web_user, item_name)
-        elif cmd in ["examine", "exam"] and args:
-            item_name = " ".join(args)
-            return self.handle_examine_item(web_user, item_name)
-        elif cmd == "use" and args:
-            item_name = " ".join(args)
-            return self.handle_use_item(web_user, item_name)
-        elif cmd == "open" and args:
-            item_name = " ".join(args)
-            return self.handle_open_item(web_user, item_name)
-        elif cmd == "close" and args:
-            item_name = " ".join(args)
-            return self.handle_close_item(web_user, item_name)
-        elif cmd in ["go", "move"] and args:
-            direction = args[0]
-            return self.move_user(web_user, direction)
-        elif cmd in ["north", "south", "east", "west"]:
-            return self.move_user(web_user, cmd)
-        
-        # Admin commands
-        elif cmd == "teleport" and web_user.admin:
-            if args:
-                return self.handle_teleport(web_user, args[0])
-            else:
-                return "Available rooms: " + ", ".join(self.rooms.keys())
-        elif cmd == "broadcast" and web_user.admin and args:
-            message = " ".join(args)
-            return self.handle_broadcast(web_user, message)
-        elif cmd == "kick" and web_user.admin and args:
-            target_user = args[0]
-            return self.handle_kick_user(web_user, target_user)
-        elif cmd == "switchuser" and web_user.admin and args:
-            if not web_user.admin:
+        # Get command from registry
+        command_def = self.command_registry.get_command(resolved_cmd)
+        if command_def:
+            # Check admin permissions
+            if command_def.admin_only and not web_user.admin:
                 return "Access denied. Admin privileges required."
-            new_username = args[0]
-            result = self.handle_switch_user(web_user, new_username)
-            emit('user_switched', {'username': new_username})
-            return result
-        elif cmd == "script" and web_user.admin and args:
-            script_name = args[0]
-            return self.handle_execute_script(web_user, script_name)
+            
+            # Check argument requirements
+            if len(args) < command_def.args_required:
+                return f"Usage: {command_def.usage}"
+            
+            # Execute command
+            try:
+                return command_def.handler(web_user, args)
+            except Exception as e:
+                logger.error(f"Error executing command {resolved_cmd}: {e}")
+                return f"Error executing command: {str(e)}"
         
         return f"Unknown command: {cmd}. Type 'help' for available commands."
     

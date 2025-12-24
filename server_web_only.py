@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.5.3"
+VERSION = "2.6.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -120,6 +120,7 @@ class TextSpaceServer:
         self.scripts = {}
         self.web_users = {}
         self.web_sessions = {}
+        self.motd = ""  # Message of the Day
         
         # Command registry
         self.command_registry = CommandRegistry()
@@ -183,6 +184,10 @@ class TextSpaceServer:
         self.command_registry.register(Command("kick", self.handle_kick_cmd, admin_only=True, args_required=1, usage="kick <username>", arg_types=["user"]))
         self.command_registry.register(Command("switchuser", self.handle_switchuser_cmd, admin_only=True, args_required=1, usage="switchuser <username>", arg_types=["user"]))
         self.command_registry.register(Command("script", self.handle_script_cmd, admin_only=True, args_required=1, usage="script <name>", arg_types=["script"]))
+        
+        # MOTD command (different usage for admin vs user)
+        self.command_registry.register(Command("motd", self.handle_motd_cmd, usage="motd"))
+        self.command_registry.register(Command("script", self.handle_script_cmd, admin_only=True, args_required=1, usage="script <name>", arg_types=["script"]))
     
     def load_data(self):
         """Load all data from YAML files"""
@@ -235,9 +240,34 @@ class TextSpaceServer:
                 self.scripts = scripts_data.get('scripts', {})
             logger.info(f"Loaded {len(self.scripts)} scripts")
             
+            # Load MOTD
+            self.load_motd()
+            
         except Exception as e:
             logger.error(f"Error loading data: {e}")
             raise
+    
+    def load_motd(self):
+        """Load MOTD from file"""
+        try:
+            with open('motd.txt', 'r') as f:
+                self.motd = f.read().strip()
+            logger.info(f"Loaded MOTD: {self.motd[:50]}..." if len(self.motd) > 50 else f"Loaded MOTD: {self.motd}")
+        except FileNotFoundError:
+            self.motd = ""
+            logger.info("No MOTD file found, using empty MOTD")
+        except Exception as e:
+            logger.error(f"Error loading MOTD: {e}")
+            self.motd = ""
+    
+    def save_motd(self):
+        """Save MOTD to file"""
+        try:
+            with open('motd.txt', 'w') as f:
+                f.write(self.motd)
+            logger.info(f"Saved MOTD: {self.motd[:50]}..." if len(self.motd) > 50 else f"Saved MOTD: {self.motd}")
+        except Exception as e:
+            logger.error(f"Error saving MOTD: {e}")
     
     def setup_web_routes(self):
         """Setup Flask routes and SocketIO handlers"""
@@ -451,7 +481,7 @@ class TextSpaceServer:
                         if not partial:
                             # Create organized command help
                             help_text = "Available Commands:\n\n"
-                            help_text += "  Basic:        help, version, whoami, who\n"
+                            help_text += "  Basic:        help, version, whoami, who, motd\n"
                             help_text += "  Look:         look (l, examine, exam) [target]\n"
                             help_text += "  Items:        get (take) <item>, drop <item>, use <item>\n"
                             help_text += "  Interact:     open <item>, close <item>\n"
@@ -460,7 +490,7 @@ class TextSpaceServer:
                             help_text += "  Inventory:    inventory (i)\n"
                             
                             if web_user.admin:
-                                help_text += "\n  Admin:        teleport [room]"
+                                help_text += "\n  Admin:        teleport [room], motd [message]"
                             
                             completions = [{
                                 'name': 'help_display',
@@ -545,6 +575,36 @@ class TextSpaceServer:
                 logger.error(f"Completions API error: {e}")
                 return jsonify({'error': str(e)}), 500
         
+        @self.app.route('/api/motd', methods=['GET'])
+        @require_whitelisted_ip
+        def api_get_motd():
+            """Get current MOTD"""
+            try:
+                return jsonify({'motd': self.motd})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/motd', methods=['POST'])
+        @require_whitelisted_ip
+        def api_set_motd():
+            """Set MOTD via API"""
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({'error': 'No data provided'}), 400
+                
+                new_motd = data.get('motd', '')
+                self.motd = new_motd
+                self.save_motd()
+                
+                return jsonify({
+                    'success': True,
+                    'motd': self.motd,
+                    'message': 'MOTD updated successfully'
+                })
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
         @self.socketio.on('connect')
         def handle_connect():
             logger.info(f"Web client connected: {request.sid}")
@@ -595,6 +655,10 @@ class TextSpaceServer:
             
             emit('login_response', {'success': True, 'admin': admin})
             emit('message', {'text': f'Welcome, {username}! Type "help" for commands.'})
+            
+            # Show MOTD if set
+            if self.motd:
+                emit('message', {'text': f'📢 Message of the Day:\n{self.motd}'})
             
             # Send room description (implicit look)
             room_desc = self.get_room_description(web_user.room_id, username)
@@ -883,6 +947,28 @@ class TextSpaceServer:
         script_name = args[0]
         return self.handle_execute_script(web_user, script_name)
     
+    def handle_motd_cmd(self, web_user, args):
+        """Handle MOTD command - view or set message of the day"""
+        if not args:
+            # View current MOTD
+            if self.motd:
+                return f"📢 Message of the Day:\n{self.motd}"
+            else:
+                return "📢 No message of the day is currently set."
+        else:
+            # Set MOTD (admin only)
+            if not web_user.admin:
+                return "❌ Only administrators can set the message of the day."
+            
+            new_motd = " ".join(args)
+            self.motd = new_motd
+            self.save_motd()
+            
+            if new_motd:
+                return f"📢 Message of the day updated:\n{new_motd}"
+            else:
+                return "📢 Message of the day cleared."
+    
     def resolve_command(self, cmd, is_admin):
         """Resolve command using most-significant match"""
         # Define all available commands
@@ -941,6 +1027,7 @@ Available commands:
   use <item> - Use an item
   open <item> - Open a container
   close <item> - Close a container
+  motd - View message of the day
   help (h) - Show this help
   version (v) - Show server version
 """
@@ -953,6 +1040,7 @@ Admin commands:
   kick <user> - Disconnect a user
   switchuser <name> - Switch to different user
   script <name> - Execute a bot script
+  motd [message] - View or set message of the day
 """
         
         return help_text.strip()

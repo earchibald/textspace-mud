@@ -122,6 +122,7 @@
         let commandHistory = [];
         let historyIndex = -1;
         let currentVersion = null;
+        let currentUser = null;
 
         socket.on('connect', () => {
             connectionStatus = 'connected';
@@ -215,18 +216,21 @@
                     if (msg.startsWith('> ') && !msg.includes(' ')) {
                         const username = msg.substring(2);
                         localStorage.setItem('textspace_username', username);
+                        currentUser = username; // Set current user for tab completion
                         break;
                     }
                 }
             } else {
                 addMessage('Login failed: ' + data.message);
                 loggedIn = false;
+                currentUser = null;
             }
         });
 
         socket.on('user_switched', (data) => {
             // Update stored username when user switches
             localStorage.setItem('textspace_username', data.username);
+            currentUser = data.username; // Update current user for tab completion
         });
 
         socket.on('message', (data) => {
@@ -371,8 +375,11 @@
         });
 
         // Handle arrow key navigation for command history
-        document.getElementById('input').addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp') {
+        document.getElementById('input').addEventListener('keydown', async (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                await handleTabCompletion(e.target);
+            } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (commandHistory.length > 0) {
                     if (historyIndex === -1) {
@@ -395,6 +402,38 @@
                 }
             }
         });
+
+        // Tab completion handler
+        async function handleTabCompletion(input) {
+            if (!loggedIn || !currentUser) return;
+            
+            const text = input.value;
+            const words = text.split(' ');
+            const partial = words[0] || '';
+            
+            try {
+                const response = await fetch(`/api/completions?partial=${encodeURIComponent(partial)}&user=${encodeURIComponent(currentUser)}`);
+                const data = await response.json();
+                
+                if (data.completions && data.completions.length === 1) {
+                    // Single match - complete it
+                    words[0] = data.completions[0].name;
+                    input.value = words.join(' ');
+                    if (words.length === 1) input.value += ' '; // Add space after command
+                } else if (data.completions && data.completions.length > 1) {
+                    // Multiple matches - show options
+                    showCompletionOptions(data.completions, partial);
+                }
+            } catch (error) {
+                console.error('Tab completion error:', error);
+            }
+        }
+
+        // Show completion options
+        function showCompletionOptions(completions, partial) {
+            const matches = completions.map(c => c.name).join(', ');
+            addMessage(`💡 Possible completions for "${partial}": ${matches}`);
+        }
 
         // Update placeholder based on connection and login status
         setInterval(() => {

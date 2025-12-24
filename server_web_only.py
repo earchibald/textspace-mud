@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -417,6 +417,46 @@ class TextSpaceServer:
                     return jsonify(info)
                 else:
                     return jsonify({'error': 'Config manager not available', 'fallback_mode': True})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/completions', methods=['GET'])
+        def api_completions():
+            """Get command completions for tab completion"""
+            try:
+                partial = request.args.get('partial', '').lower()
+                username = request.args.get('user', '')
+                
+                completions = []
+                if username in self.web_users:
+                    web_user = self.web_users[username]
+                    
+                    # Get matching commands from registry
+                    for cmd_name, cmd in self.command_registry.commands.items():
+                        # Check admin permissions
+                        if cmd.admin_only and not web_user.admin:
+                            continue
+                        
+                        # Check if command matches partial
+                        if cmd_name.startswith(partial):
+                            completions.append({
+                                'name': cmd_name,
+                                'usage': cmd.usage,
+                                'aliases': cmd.aliases,
+                                'admin_only': cmd.admin_only
+                            })
+                        
+                        # Check aliases too
+                        for alias in cmd.aliases:
+                            if alias.startswith(partial) and alias not in [c['name'] for c in completions]:
+                                completions.append({
+                                    'name': alias,
+                                    'usage': cmd.usage,
+                                    'aliases': [],
+                                    'admin_only': cmd.admin_only
+                                })
+                
+                return jsonify({'completions': completions})
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         

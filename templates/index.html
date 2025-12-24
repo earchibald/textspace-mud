@@ -131,6 +131,7 @@
             // Check for stored username and auto-login
             const storedUsername = localStorage.getItem('textspace_username');
             if (storedUsername) {
+                currentUser = storedUsername; // Set current user for tab completion
                 socket.emit('login', {username: storedUsername});
             } else {
                 addMessage('✅ Connected to server. Enter your username to begin.');
@@ -405,21 +406,30 @@
 
         // Tab completion handler
         async function handleTabCompletion(input) {
-            if (!loggedIn || !currentUser) return;
+            console.log('Tab completion triggered', {loggedIn, currentUser});
+            if (!loggedIn || !currentUser) {
+                console.log('Tab completion blocked: not logged in or no current user');
+                return;
+            }
             
             const text = input.value;
             const words = text.split(' ');
             const partial = words[0] || '';
             
+            console.log('Tab completion request:', {text, partial, currentUser});
+            
             try {
                 const response = await fetch(`/api/completions?partial=${encodeURIComponent(partial)}&user=${encodeURIComponent(currentUser)}`);
                 const data = await response.json();
+                
+                console.log('Tab completion response:', data);
                 
                 if (data.completions && data.completions.length === 1) {
                     // Single match - complete it
                     words[0] = data.completions[0].name;
                     input.value = words.join(' ');
                     if (words.length === 1) input.value += ' '; // Add space after command
+                    console.log('Auto-completed to:', input.value);
                 } else if (data.completions && data.completions.length > 1) {
                     // Multiple matches - show options
                     showCompletionOptions(data.completions, partial);

@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.8.1"
+VERSION = "2.8.2"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -876,7 +876,19 @@ class TextSpaceServer:
         
         if command_name == "put":
             # put ITEM [in CONTAINER]
-            if len(words) == 2:  # "put ITEM"
+            if len(words) == 1:  # "put "
+                # Completing the item name
+                items = self.get_completion_context(username, "inventory_item")
+                for item in items:
+                    if item.lower().startswith(partial):
+                        completions.append({
+                            'name': item,
+                            'usage': f"put {item}",
+                            'aliases': [],
+                            'admin_only': False,
+                            'type': 'argument'
+                        })
+            elif len(words) == 2:  # "put ITEM"
                 if full_text.endswith(' '):
                     # Suggest "in" and available containers
                     if "in".startswith(partial):
@@ -925,7 +937,19 @@ class TextSpaceServer:
         
         elif command_name == "give":
             # give ITEM to TARGET
-            if len(words) == 2:  # "give ITEM"
+            if len(words) == 1:  # "give "
+                # Completing the item name
+                items = self.get_completion_context(username, "inventory_item")
+                for item in items:
+                    if item.lower().startswith(partial):
+                        completions.append({
+                            'name': item,
+                            'usage': f"give {item}",
+                            'aliases': [],
+                            'admin_only': False,
+                            'type': 'argument'
+                        })
+            elif len(words) == 2:  # "give ITEM"
                 if full_text.endswith(' '):
                     # Suggest "to" and available targets
                     if "to".startswith(partial):

@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.4.1"
+VERSION = "2.4.2"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -678,8 +678,8 @@ class TextSpaceServer:
                 examinable.extend([self.items[item_id].name for item_id in room.items if item_id in self.items])
                 # Other users in room
                 examinable.extend([user for user in room.users if user != username])
-                # Visible bots in room
-                examinable.extend([bot.name for bot in self.bots.values() if bot.room_id == web_user.room_id and bot.visible])
+                # All bots in room (both visible and invisible can be examined)
+                examinable.extend([bot.name for bot in self.bots.values() if bot.room_id == web_user.room_id])
             # User's inventory
             examinable.extend([self.items[item_id].name for item_id in web_user.inventory if item_id in self.items])
             return examinable
@@ -1220,7 +1220,7 @@ Admin commands:
         return f"You drop {item.name}."
     
     def handle_examine_item(self, web_user, item_name):
-        """Handle examining an item"""
+        """Handle examining an item, user, or bot"""
         # Check inventory first
         for item_id in web_user.inventory:
             if item_id in self.items:
@@ -1236,6 +1236,22 @@ Admin commands:
                     item = self.items[item_id]
                     if item.name.lower() == item_name.lower():
                         return f"{item.name}: {item.description}"
+            
+            # Check other users in room
+            for user_name in room.users:
+                if user_name != web_user.name and user_name.lower() == item_name.lower():
+                    if user_name in self.web_users:
+                        target_user = self.web_users[user_name]
+                        admin_status = " (admin)" if target_user.admin else ""
+                        return f"{user_name}{admin_status}: Another player exploring the space."
+                    return f"{user_name}: Another visitor to this place."
+            
+            # Check bots in room (both visible and invisible for examine)
+            for bot in self.bots.values():
+                if bot.room_id == web_user.room_id:
+                    if bot.name.lower() == item_name.lower():
+                        visibility_note = " (invisible)" if not bot.visible else ""
+                        return f"{bot.name}{visibility_note}: {bot.description}"
         
         return f"You don't see '{item_name}' here."
     

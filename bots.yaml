@@ -2,7 +2,7 @@ bots:
   teacher:
     name: "Ms. Teacher"
     room: "library"
-    description: "A friendly educational bot who loves to help with learning."
+    description: "A friendly educational bot with kind eyes and a warm smile. She wears a simple dress and carries a small chalkboard. Her presence radiates patience and knowledge, making learning feel approachable and fun."
     responses:
       - trigger: ["hello", "hi", "help"]
         response: "Hello! I'm here to help you learn. Try asking me about math, reading, or science!"
@@ -16,7 +16,7 @@ bots:
   guide:
     name: "Garden Guide"
     room: "garden"
-    description: "A helpful bot that knows all about the garden."
+    description: "A knowledgeable bot with earth-stained hands and a wide-brimmed hat. Tools hang from their belt, and they seem to know every plant by name. Their weathered face shows years of tending to growing things."
     responses:
       - trigger: ["flowers", "plants", "garden"]
         response: "The garden has many beautiful flowers! Red roses, yellow daisies, and purple violets."
@@ -28,7 +28,7 @@ bots:
   greeter:
     name: "Friendly Greeter"
     room: "lobby"
-    description: "A welcoming bot that helps new visitors."
+    description: "An enthusiastic bot with bright, welcoming features and an infectious smile. They wear a colorful vest with a name tag that says 'Hello!' Their arms are always ready for a friendly wave."
     responses:
       - trigger: ["help", "where", "how"]
         response: "Welcome! Try 'north' for the garden, 'east' for the library, or 'south' for the playground!"
@@ -36,7 +36,7 @@ bots:
   wind_spirit:
     name: "Wind Spirit"
     room: "garden"
-    description: "An invisible spirit that creates atmospheric effects."
+    description: "A mysterious ethereal presence that manifests as shimmering air and gentle breezes. Though invisible to most, you can sense its ancient wisdom and connection to the natural world around the garden."
     visible: false
     responses:
       - trigger: ["wind", "breeze", "air"]
@@ -47,7 +47,7 @@ bots:
   shopkeeper:
     name: "Friendly Shopkeeper"
     room: "lobby"
-    description: "A helpful bot that trades items with visitors."
+    description: "A cheerful merchant bot with twinkling eyes and nimble fingers. Their apron has many pockets filled with curious trinkets, and they always seem to have exactly what someone needs, even if they didn't know they needed it."
     inventory: ["crystal_gem", "magic_wand"]
     responses:
       - trigger: ["trade", "shop", "buy", "sell"]
@@ -58,7 +58,7 @@ bots:
   wanderer:
     name: "Curious Wanderer"
     room: "lobby"
-    description: "A restless bot that explores the space, always moving to new places."
+    description: "A restless bot with well-worn travel gear and eyes that sparkle with wanderlust. Their backpack is covered in patches from distant places, and they can never seem to stay still for long, always eager for the next adventure."
     startup_script: "wanderer_roam"
     responses:
       - trigger: ["hello", "hi", "wanderer"]

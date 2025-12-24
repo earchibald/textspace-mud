@@ -47,10 +47,16 @@
    railway up
    ```
 
-5. **Validate Deployment**
+5. **Validate Deployment (60 Second Wait)**
+   ```bash
+   sleep 60  # Wait for Railway to cycle versions
+   ```
    - Check server_status() for new version number
    - Test new functionality
+   - If deployment fails, check GitHub CI results
    - Monitor server logs for issues
+
+**Note**: See `_bmad/_config/deployment-process.md` for comprehensive deployment documentation including troubleshooting and Railway-specific behaviors.
 
 ### Current Change Analysis
 - **Generalized command parser**: New feature

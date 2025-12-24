@@ -234,6 +234,28 @@
             currentUser = data.username; // Update current user for tab completion
         });
 
+        socket.on('logout', (data) => {
+            // Handle logout event from server
+            addMessage(data.message);
+            
+            // Clear cached credentials
+            localStorage.removeItem('textspace_username');
+            
+            // Reset login state
+            loggedIn = false;
+            currentUser = null;
+            
+            // Clear input and show login prompt
+            const input = document.getElementById('input');
+            input.value = '';
+            input.placeholder = 'Enter your username...';
+            
+            // Disconnect socket after brief delay
+            setTimeout(() => {
+                socket.disconnect();
+            }, 1000);
+        });
+
         socket.on('message', (data) => {
             addMessage(data.text);
             

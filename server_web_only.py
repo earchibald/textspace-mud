@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.6.0"
+VERSION = "2.7.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -187,6 +187,9 @@ class TextSpaceServer:
         
         # MOTD command (different usage for admin vs user)
         self.command_registry.register(Command("motd", self.handle_motd_cmd, usage="motd"))
+        
+        # Quit/logout command
+        self.command_registry.register(Command("quit", self.handle_quit_cmd, usage="quit", aliases=["logout"]))
         self.command_registry.register(Command("script", self.handle_script_cmd, admin_only=True, args_required=1, usage="script <name>", arg_types=["script"]))
     
     def load_data(self):
@@ -481,7 +484,7 @@ class TextSpaceServer:
                         if not partial:
                             # Create organized command help
                             help_text = "Available Commands:\n\n"
-                            help_text += "  Basic:        help, version, whoami, who, motd\n"
+                            help_text += "  Basic:        help, version, whoami, who, motd, quit (logout)\n"
                             help_text += "  Look:         look (l, examine, exam) [target]\n"
                             help_text += "  Items:        get (take) <item>, drop <item>, use <item>\n"
                             help_text += "  Interact:     open <item>, close <item>\n"
@@ -969,6 +972,23 @@ class TextSpaceServer:
             else:
                 return "📢 Message of the day cleared."
     
+    def handle_quit_cmd(self, web_user, args):
+        """Handle quit/logout command - clean logout with session cleanup"""
+        username = web_user.name
+        
+        # Notify room of departure
+        self.send_to_room(web_user.room_id, f"📤 {username} has left the game.", exclude_user=username)
+        
+        # Clean up server state
+        self.handle_user_disconnect(username, web_user.session_id)
+        
+        # Send logout event to client to trigger cleanup
+        from flask_socketio import emit
+        emit('logout', {'message': f'👋 Goodbye, {username}! You have been logged out.'})
+        
+        # Return message (though client will disconnect)
+        return f"👋 Goodbye, {username}!"
+    
     def resolve_command(self, cmd, is_admin):
         """Resolve command using most-significant match"""
         # Define all available commands
@@ -1028,6 +1048,7 @@ Available commands:
   open <item> - Open a container
   close <item> - Close a container
   motd - View message of the day
+  quit (logout) - Log out and return to login screen
   help (h) - Show this help
   version (v) - Show server version
 """

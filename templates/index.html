@@ -425,8 +425,15 @@
                 console.log('Tab completion response:', data);
                 
                 if (data.completions && data.completions.length === 1) {
-                    // Single match - complete it fully
+                    // Single match - check if it's help display
                     const completion = data.completions[0];
+                    if (completion.type === 'help') {
+                        // Show help text directly
+                        showCompletionOptions(data.completions, partial);
+                        return;
+                    }
+                    
+                    // Normal completion
                     if (completion.type === 'argument') {
                         // Replace the last word with the completion
                         words[words.length - 1] = completion.name;
@@ -477,6 +484,12 @@
 
         // Show completion options
         function showCompletionOptions(completions, partial) {
+            // Check if this is the special help display case
+            if (completions.length === 1 && completions[0].type === 'help') {
+                addMessage(completions[0].usage);
+                return;
+            }
+            
             const matches = completions.map(c => c.name).join(', ');
             addMessage(`💡 Possible completions for "${partial}": ${matches}`);
         }

@@ -425,18 +425,42 @@
                 console.log('Tab completion response:', data);
                 
                 if (data.completions && data.completions.length === 1) {
-                    // Single match - complete it
+                    // Single match - complete it fully
                     words[0] = data.completions[0].name;
                     input.value = words.join(' ');
                     if (words.length === 1) input.value += ' '; // Add space after command
                     console.log('Auto-completed to:', input.value);
                 } else if (data.completions && data.completions.length > 1) {
-                    // Multiple matches - show options
-                    showCompletionOptions(data.completions, partial);
+                    // Multiple matches - find common prefix
+                    const commonPrefix = findCommonPrefix(data.completions.map(c => c.name));
+                    if (commonPrefix.length > partial.length) {
+                        // Extend to common prefix
+                        words[0] = commonPrefix;
+                        input.value = words.join(' ');
+                        console.log('Extended to common prefix:', input.value);
+                    } else {
+                        // No extension possible - show options
+                        showCompletionOptions(data.completions, partial);
+                    }
                 }
             } catch (error) {
                 console.error('Tab completion error:', error);
             }
+        }
+
+        // Find common prefix among completion options
+        function findCommonPrefix(strings) {
+            if (strings.length === 0) return '';
+            if (strings.length === 1) return strings[0];
+            
+            let prefix = strings[0];
+            for (let i = 1; i < strings.length; i++) {
+                while (strings[i].indexOf(prefix) !== 0) {
+                    prefix = prefix.substring(0, prefix.length - 1);
+                    if (prefix === '') return '';
+                }
+            }
+            return prefix;
         }
 
         // Show completion options

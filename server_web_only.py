@@ -553,6 +553,99 @@ class TextSpaceServer:
         
         return f"Unknown command: {cmd}. Type 'help' for available commands."
     
+    # Command handler methods for registry
+    def handle_help(self, web_user, args):
+        return self.get_help_text(web_user.admin)
+    
+    def handle_version(self, web_user, args):
+        return f"The Text Spot v{VERSION}"
+    
+    def handle_whoami(self, web_user, args):
+        admin_status = " (admin)" if web_user.admin else ""
+        return f"You are: {web_user.name}{admin_status}"
+    
+    def handle_look(self, web_user, args):
+        return self.get_room_description(web_user.room_id, web_user.name)
+    
+    def handle_who(self, web_user, args):
+        return self.get_who_list()
+    
+    def handle_inventory(self, web_user, args):
+        return self.get_inventory(web_user)
+    
+    def handle_say_cmd(self, web_user, args):
+        message = " ".join(args)
+        return self.handle_say(web_user, message)
+    
+    def handle_whisper_cmd(self, web_user, args):
+        target = args[0]
+        message = " ".join(args[1:])
+        return self.handle_whisper(web_user, target, message)
+    
+    def handle_get_cmd(self, web_user, args):
+        item_name = " ".join(args)
+        return self.handle_get_item(web_user, item_name)
+    
+    def handle_drop_cmd(self, web_user, args):
+        item_name = " ".join(args)
+        return self.handle_drop_item(web_user, item_name)
+    
+    def handle_examine_cmd(self, web_user, args):
+        item_name = " ".join(args)
+        return self.handle_examine_item(web_user, item_name)
+    
+    def handle_use_cmd(self, web_user, args):
+        item_name = " ".join(args)
+        return self.handle_use_item(web_user, item_name)
+    
+    def handle_open_cmd(self, web_user, args):
+        item_name = " ".join(args)
+        return self.handle_open_item(web_user, item_name)
+    
+    def handle_close_cmd(self, web_user, args):
+        item_name = " ".join(args)
+        return self.handle_close_item(web_user, item_name)
+    
+    def handle_go_cmd(self, web_user, args):
+        direction = args[0]
+        return self.move_user(web_user, direction)
+    
+    def handle_north(self, web_user, args):
+        return self.move_user(web_user, "north")
+    
+    def handle_south(self, web_user, args):
+        return self.move_user(web_user, "south")
+    
+    def handle_east(self, web_user, args):
+        return self.move_user(web_user, "east")
+    
+    def handle_west(self, web_user, args):
+        return self.move_user(web_user, "west")
+    
+    def handle_teleport_cmd(self, web_user, args):
+        if args:
+            return self.handle_teleport(web_user, args[0])
+        else:
+            return "Available rooms: " + ", ".join(self.rooms.keys())
+    
+    def handle_broadcast_cmd(self, web_user, args):
+        message = " ".join(args)
+        return self.handle_broadcast(web_user, message)
+    
+    def handle_kick_cmd(self, web_user, args):
+        target_user = args[0]
+        return self.handle_kick_user(web_user, target_user)
+    
+    def handle_switchuser_cmd(self, web_user, args):
+        new_username = args[0]
+        result = self.handle_switch_user(web_user, new_username)
+        emit('user_switched', {'username': new_username})
+        return result
+    
+    def handle_script_cmd(self, web_user, args):
+        script_name = args[0]
+        return self.handle_execute_script(web_user, script_name)
+    
     def resolve_command(self, cmd, is_admin):
         """Resolve command using most-significant match"""
         # Define all available commands

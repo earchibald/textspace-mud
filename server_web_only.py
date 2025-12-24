@@ -446,29 +446,54 @@ class TextSpaceServer:
                     if not is_argument_completion:
                         # Completing command name
                         logger.info("Completing command name")
-                        for cmd_name, cmd in self.command_registry.commands.items():
-                            # Check admin permissions
-                            if cmd.admin_only and not web_user.admin:
-                                continue
-                            
-                            # Check if command matches partial
-                            if cmd_name.startswith(partial):
-                                completions.append({
-                                    'name': cmd_name,
+                        
+                        # For empty partial, show formatted help-style output
+                        if not partial:
+                            # Show main commands with their aliases
+                            main_commands = []
+                            for cmd_name, cmd in self.command_registry.commands.items():
+                                if cmd.admin_only and not web_user.admin:
+                                    continue
+                                
+                                # Format: "command (alias1, alias2)" or just "command"
+                                display_name = cmd_name
+                                if cmd.aliases:
+                                    display_name += f" ({', '.join(cmd.aliases)})"
+                                
+                                main_commands.append({
+                                    'name': display_name,
                                     'usage': cmd.usage,
-                                    'aliases': cmd.aliases,
+                                    'aliases': [],
                                     'admin_only': cmd.admin_only
                                 })
                             
-                            # Check aliases too
-                            for alias in cmd.aliases:
-                                if alias.startswith(partial) and alias not in [c['name'] for c in completions]:
+                            # Sort by command name for consistent display
+                            completions = sorted(main_commands, key=lambda x: x['name'])
+                        else:
+                            # Normal partial matching
+                            for cmd_name, cmd in self.command_registry.commands.items():
+                                # Check admin permissions
+                                if cmd.admin_only and not web_user.admin:
+                                    continue
+                                
+                                # Check if command matches partial
+                                if cmd_name.startswith(partial):
                                     completions.append({
-                                        'name': alias,
+                                        'name': cmd_name,
                                         'usage': cmd.usage,
-                                        'aliases': [],
+                                        'aliases': cmd.aliases,
                                         'admin_only': cmd.admin_only
                                     })
+                                
+                                # Check aliases too
+                                for alias in cmd.aliases:
+                                    if alias.startswith(partial) and alias not in [c['name'] for c in completions]:
+                                        completions.append({
+                                            'name': alias,
+                                            'usage': cmd.usage,
+                                            'aliases': [],
+                                            'admin_only': cmd.admin_only
+                                        })
                     
                     else:
                         # Completing command argument

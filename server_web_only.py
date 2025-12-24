@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.4.2"
+VERSION = "2.4.3"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -678,8 +678,11 @@ class TextSpaceServer:
                 examinable.extend([self.items[item_id].name for item_id in room.items if item_id in self.items])
                 # Other users in room
                 examinable.extend([user for user in room.users if user != username])
-                # All bots in room (both visible and invisible can be examined)
-                examinable.extend([bot.name for bot in self.bots.values() if bot.room_id == web_user.room_id])
+                # Bots in room (visibility depends on user permissions)
+                for bot in self.bots.values():
+                    if bot.room_id == web_user.room_id:
+                        if bot.visible or web_user.admin:
+                            examinable.append(bot.name)
             # User's inventory
             examinable.extend([self.items[item_id].name for item_id in web_user.inventory if item_id in self.items])
             return examinable
@@ -1246,12 +1249,14 @@ Admin commands:
                         return f"{user_name}{admin_status}: Another player exploring the space."
                     return f"{user_name}: Another visitor to this place."
             
-            # Check bots in room (both visible and invisible for examine)
+            # Check bots in room (visibility depends on user permissions)
             for bot in self.bots.values():
                 if bot.room_id == web_user.room_id:
                     if bot.name.lower() == item_name.lower():
-                        visibility_note = " (invisible)" if not bot.visible else ""
-                        return f"{bot.name}{visibility_note}: {bot.description}"
+                        # Regular users can only examine visible bots, admins can examine all
+                        if bot.visible or web_user.admin:
+                            visibility_note = " (invisible)" if not bot.visible else ""
+                            return f"{bot.name}{visibility_note}: {bot.description}"
         
         return f"You don't see '{item_name}' here."
     

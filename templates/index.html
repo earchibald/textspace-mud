@@ -472,7 +472,8 @@
                         console.log('Extended to common prefix:', input.value);
                     } else {
                         // No extension possible - show options
-                        showCompletionOptions(data.completions, partial);
+                        const contextText = data.completions[0].type === 'argument' ? text : partial;
+                        showCompletionOptions(data.completions, partial, contextText);
                     }
                 }
             } catch (error) {
@@ -496,7 +497,7 @@
         }
 
         // Show completion options
-        function showCompletionOptions(completions, partial) {
+        function showCompletionOptions(completions, partial, contextText = null) {
             // Check if this is the special help display case
             if (completions.length === 1 && completions[0].type === 'help') {
                 addMessage(completions[0].usage);
@@ -504,7 +505,8 @@
             }
             
             const matches = completions.map(c => c.name).join(', ');
-            addMessage(`💡 Possible completions for "${partial}": ${matches}`);
+            const displayContext = contextText || partial;
+            addMessage(`💡 Possible completions for "${displayContext}": ${matches}`);
         }
 
         // Update placeholder based on connection and login status

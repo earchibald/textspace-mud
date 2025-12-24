@@ -17,7 +17,7 @@ from config_manager import ConfigManager
 from functools import wraps
 
 # Version tracking
-VERSION = "2.0.26"
+VERSION = "2.1.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -649,14 +649,32 @@ Admin commands:
             exits = ", ".join(room.exits.keys())
             lines.append(f"Exits: {exits}")
         
-        other_users = [u for u in room.users if u != username]
-        if other_users:
-            lines.append(f"Users here: {', '.join(other_users)}")
+        # Check if user is admin
+        is_admin = username in self.web_users and self.web_users[username].admin
         
-        bots_here = [bot.name for bot in self.bots.values() 
-                    if bot.room_id == room_id and bot.visible]
-        if bots_here:
-            lines.append(f"Bots here: {', '.join(bots_here)}")
+        other_users = [u for u in room.users if u != username]
+        visible_bots = [bot for bot in self.bots.values() if bot.room_id == room_id and bot.visible]
+        invisible_bots = [bot for bot in self.bots.values() if bot.room_id == room_id and not bot.visible]
+        
+        if is_admin:
+            # Admin view: separate lists
+            if other_users:
+                lines.append(f"Users here: {', '.join(other_users)}")
+            
+            # Show all bots with invisible ones in parentheses
+            all_bots = []
+            for bot in visible_bots:
+                all_bots.append(bot.name)
+            for bot in invisible_bots:
+                all_bots.append(f"({bot.name})")
+            
+            if all_bots:
+                lines.append(f"Bots here: {', '.join(all_bots)}")
+        else:
+            # Non-admin view: combined list without differentiation
+            all_entities = other_users + [bot.name for bot in visible_bots]
+            if all_entities:
+                lines.append(f"Others here: {', '.join(all_entities)}")
         
         items_here = [self.items[item_id].name for item_id in room.items 
                      if item_id in self.items]

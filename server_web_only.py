@@ -449,26 +449,26 @@ class TextSpaceServer:
                         
                         # For empty partial, show formatted help-style output
                         if not partial:
-                            # Show main commands with their aliases
-                            main_commands = []
-                            for cmd_name, cmd in self.command_registry.commands.items():
-                                if cmd.admin_only and not web_user.admin:
-                                    continue
-                                
-                                # Format: "command (alias1, alias2)" or just "command"
-                                display_name = cmd_name
-                                if cmd.aliases:
-                                    display_name += f" ({', '.join(cmd.aliases)})"
-                                
-                                main_commands.append({
-                                    'name': display_name,
-                                    'usage': cmd.usage,
-                                    'aliases': [],
-                                    'admin_only': cmd.admin_only
-                                })
+                            # Create organized command help
+                            help_text = "Available Commands:\n\n"
+                            help_text += "  Basic:        help, version, whoami, who\n"
+                            help_text += "  Look:         look (l, examine, exam) [target]\n"
+                            help_text += "  Items:        get (take) <item>, drop <item>, use <item>\n"
+                            help_text += "  Interact:     open <item>, close <item>\n"
+                            help_text += "  Chat:         say <message>, whisper <target> <message>\n"
+                            help_text += "  Movement:     go (move, g) <direction>, north (n), south (s), east (e), west (w)\n"
+                            help_text += "  Inventory:    inventory (i)\n"
                             
-                            # Sort by command name for consistent display
-                            completions = sorted(main_commands, key=lambda x: x['name'])
+                            if web_user.admin:
+                                help_text += "\n  Admin:        teleport [room]"
+                            
+                            completions = [{
+                                'name': 'help_display',
+                                'usage': help_text,
+                                'aliases': [],
+                                'admin_only': False,
+                                'type': 'help'
+                            }]
                         else:
                             # Normal partial matching
                             for cmd_name, cmd in self.command_registry.commands.items():

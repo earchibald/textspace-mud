@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.8.0"
+VERSION = "2.8.1"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -553,32 +553,37 @@ class TextSpaceServer:
                     logger.info(f"Command def: {command_def}, arg_types: {command_def.arg_types if command_def else None}")
                     
                     if command_def and command_def.arg_types:
-                        # Determine which argument we're completing
-                        if full_text.endswith(' '):
-                            # Starting a new argument
-                            arg_index = len(words) - 1
+                        # Special handling for complex grammar commands
+                        if command_def.name in ['put', 'give']:
+                            completions.extend(self.get_complex_completions(username, command_def.name, words, partial, full_text))
                         else:
-                            # Completing current argument
-                            arg_index = len(words) - 2
-                        
-                        logger.info(f"Argument index: {arg_index}")
-                        
-                        if arg_index < len(command_def.arg_types):
-                            arg_type = command_def.arg_types[arg_index]
-                            logger.info(f"Argument type: {arg_type}")
-                            context_items = self.get_completion_context(username, arg_type)
-                            logger.info(f"Context items: {context_items}")
+                            # Standard argument completion
+                            # Determine which argument we're completing
+                            if full_text.endswith(' '):
+                                # Starting a new argument
+                                arg_index = len(words) - 1
+                            else:
+                                # Completing current argument
+                                arg_index = len(words) - 2
                             
-                            # Filter context items by partial match
-                            for item in context_items:
-                                if item.lower().startswith(partial):
-                                    completions.append({
-                                        'name': item,
-                                        'usage': f"{command_def.name} {item}",
-                                        'aliases': [],
-                                        'admin_only': False,
-                                        'type': 'argument'
-                                    })
+                            logger.info(f"Argument index: {arg_index}")
+                            
+                            if arg_index < len(command_def.arg_types):
+                                arg_type = command_def.arg_types[arg_index]
+                                logger.info(f"Argument type: {arg_type}")
+                                context_items = self.get_completion_context(username, arg_type)
+                                logger.info(f"Context items: {context_items}")
+                                
+                                # Filter context items by partial match
+                                for item in context_items:
+                                    if item.lower().startswith(partial):
+                                        completions.append({
+                                            'name': item,
+                                            'usage': f"{command_def.name} {item}",
+                                            'aliases': [],
+                                            'admin_only': False,
+                                            'type': 'argument'
+                                        })
                 
                 logger.info(f"Returning {len(completions)} completions")
                 return jsonify({'completions': completions})
@@ -864,6 +869,110 @@ class TextSpaceServer:
                 return list(self.scripts.keys())
         
         return []
+    
+    def get_complex_completions(self, username, command_name, words, partial, full_text):
+        """Get completions for complex grammar commands (put, give)"""
+        completions = []
+        
+        if command_name == "put":
+            # put ITEM [in CONTAINER]
+            if len(words) == 2:  # "put ITEM"
+                if full_text.endswith(' '):
+                    # Suggest "in" and available containers
+                    if "in".startswith(partial):
+                        completions.append({
+                            'name': 'in',
+                            'usage': f"put {words[1]} in <container>",
+                            'aliases': [],
+                            'admin_only': False,
+                            'type': 'preposition'
+                        })
+                    # Also suggest open containers directly
+                    containers = self.get_completion_context(username, "open_container")
+                    for container in containers:
+                        if container.lower().startswith(partial):
+                            completions.append({
+                                'name': container,
+                                'usage': f"put {words[1]} in {container}",
+                                'aliases': [],
+                                'admin_only': False,
+                                'type': 'container'
+                            })
+                else:
+                    # Completing the item name
+                    items = self.get_completion_context(username, "inventory_item")
+                    for item in items:
+                        if item.lower().startswith(partial):
+                            completions.append({
+                                'name': item,
+                                'usage': f"put {item}",
+                                'aliases': [],
+                                'admin_only': False,
+                                'type': 'argument'
+                            })
+            elif len(words) >= 3 and words[2] == "in":
+                # "put ITEM in CONTAINER"
+                containers = self.get_completion_context(username, "open_container")
+                for container in containers:
+                    if container.lower().startswith(partial):
+                        completions.append({
+                            'name': container,
+                            'usage': f"put {words[1]} in {container}",
+                            'aliases': [],
+                            'admin_only': False,
+                            'type': 'argument'
+                        })
+        
+        elif command_name == "give":
+            # give ITEM to TARGET
+            if len(words) == 2:  # "give ITEM"
+                if full_text.endswith(' '):
+                    # Suggest "to" and available targets
+                    if "to".startswith(partial):
+                        completions.append({
+                            'name': 'to',
+                            'usage': f"give {words[1]} to <target>",
+                            'aliases': [],
+                            'admin_only': False,
+                            'type': 'preposition'
+                        })
+                    # Also suggest targets directly
+                    targets = self.get_completion_context(username, "give_target")
+                    for target in targets:
+                        if target.lower().startswith(partial):
+                            completions.append({
+                                'name': target,
+                                'usage': f"give {words[1]} to {target}",
+                                'aliases': [],
+                                'admin_only': False,
+                                'type': 'target'
+                            })
+                else:
+                    # Completing the item name
+                    items = self.get_completion_context(username, "inventory_item")
+                    for item in items:
+                        if item.lower().startswith(partial):
+                            completions.append({
+                                'name': item,
+                                'usage': f"give {item}",
+                                'aliases': [],
+                                'admin_only': False,
+                                'type': 'argument'
+                            })
+            elif len(words) >= 3 and words[2] == "to":
+                # "give ITEM to TARGET"
+                targets = self.get_completion_context(username, "give_target")
+                for target in targets:
+                    if target.lower().startswith(partial):
+                        completions.append({
+                            'name': target,
+                            'usage': f"give {words[1]} to {target}",
+                            'aliases': [],
+                            'admin_only': False,
+                            'type': 'argument'
+                        })
+        
+        return completions
     
     # Command handler methods for registry
     def handle_help(self, web_user, args):

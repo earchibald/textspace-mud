@@ -414,28 +414,40 @@
             
             const text = input.value;
             const words = text.split(' ');
-            const partial = words[0] || '';
+            const partial = words[words.length - 1] || ''; // Last word being typed
             
-            console.log('Tab completion request:', {text, partial, currentUser});
+            console.log('Tab completion request:', {text, partial, currentUser, words});
             
             try {
-                const response = await fetch(`/api/completions?partial=${encodeURIComponent(partial)}&user=${encodeURIComponent(currentUser)}`);
+                const response = await fetch(`/api/completions?partial=${encodeURIComponent(partial)}&user=${encodeURIComponent(currentUser)}&text=${encodeURIComponent(text)}`);
                 const data = await response.json();
                 
                 console.log('Tab completion response:', data);
                 
                 if (data.completions && data.completions.length === 1) {
                     // Single match - complete it fully
-                    words[0] = data.completions[0].name;
-                    input.value = words.join(' ');
-                    if (words.length === 1) input.value += ' '; // Add space after command
+                    const completion = data.completions[0];
+                    if (completion.type === 'argument') {
+                        // Replace the last word with the completion
+                        words[words.length - 1] = completion.name;
+                        input.value = words.join(' ') + ' ';
+                    } else {
+                        // Command completion
+                        words[0] = completion.name;
+                        input.value = words.join(' ');
+                        if (words.length === 1) input.value += ' '; // Add space after command
+                    }
                     console.log('Auto-completed to:', input.value);
                 } else if (data.completions && data.completions.length > 1) {
                     // Multiple matches - find common prefix
                     const commonPrefix = findCommonPrefix(data.completions.map(c => c.name));
                     if (commonPrefix.length > partial.length) {
                         // Extend to common prefix
-                        words[0] = commonPrefix;
+                        if (data.completions[0].type === 'argument') {
+                            words[words.length - 1] = commonPrefix;
+                        } else {
+                            words[0] = commonPrefix;
+                        }
                         input.value = words.join(' ');
                         console.log('Extended to common prefix:', input.value);
                     } else {

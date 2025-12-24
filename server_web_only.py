@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.3.3"
+VERSION = "2.4.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -160,29 +160,29 @@ class TextSpaceServer:
         
         # Communication commands
         self.command_registry.register(Command("say", self.handle_say_cmd, args_required=1, usage="say <message>"))
-        self.command_registry.register(Command("whisper", self.handle_whisper_cmd, args_required=2, usage="whisper <target> <message>"))
+        self.command_registry.register(Command("whisper", self.handle_whisper_cmd, args_required=2, usage="whisper <target> <message>", arg_types=["user", "message"]))
         
-        # Item commands
-        self.command_registry.register(Command("get", self.handle_get_cmd, args_required=1, usage="get <item>", aliases=["take"]))
-        self.command_registry.register(Command("drop", self.handle_drop_cmd, args_required=1, usage="drop <item>"))
-        self.command_registry.register(Command("examine", self.handle_examine_cmd, args_required=1, usage="examine <item>", aliases=["exam"]))
-        self.command_registry.register(Command("use", self.handle_use_cmd, args_required=1, usage="use <item>"))
-        self.command_registry.register(Command("open", self.handle_open_cmd, args_required=1, usage="open <item>"))
-        self.command_registry.register(Command("close", self.handle_close_cmd, args_required=1, usage="close <item>"))
+        # Item commands with contextual completion
+        self.command_registry.register(Command("get", self.handle_get_cmd, args_required=1, usage="get <item>", aliases=["take"], arg_types=["room_item"]))
+        self.command_registry.register(Command("drop", self.handle_drop_cmd, args_required=1, usage="drop <item>", arg_types=["inventory_item"]))
+        self.command_registry.register(Command("examine", self.handle_examine_cmd, args_required=1, usage="examine <item>", aliases=["exam"], arg_types=["examinable"]))
+        self.command_registry.register(Command("use", self.handle_use_cmd, args_required=1, usage="use <item>", arg_types=["inventory_item"]))
+        self.command_registry.register(Command("open", self.handle_open_cmd, args_required=1, usage="open <item>", arg_types=["openable"]))
+        self.command_registry.register(Command("close", self.handle_close_cmd, args_required=1, usage="close <item>", arg_types=["closeable"]))
         
         # Movement commands
-        self.command_registry.register(Command("go", self.handle_go_cmd, args_required=1, usage="go <direction>", aliases=["move", "g"]))
+        self.command_registry.register(Command("go", self.handle_go_cmd, args_required=1, usage="go <direction>", aliases=["move", "g"], arg_types=["direction"]))
         self.command_registry.register(Command("north", self.handle_north, usage="north", aliases=["n"]))
         self.command_registry.register(Command("south", self.handle_south, usage="south", aliases=["s"]))
         self.command_registry.register(Command("east", self.handle_east, usage="east", aliases=["e"]))
         self.command_registry.register(Command("west", self.handle_west, usage="west", aliases=["w"]))
         
         # Admin commands
-        self.command_registry.register(Command("teleport", self.handle_teleport_cmd, admin_only=True, usage="teleport [room]"))
+        self.command_registry.register(Command("teleport", self.handle_teleport_cmd, admin_only=True, usage="teleport [room]", arg_types=["room"]))
         self.command_registry.register(Command("broadcast", self.handle_broadcast_cmd, admin_only=True, args_required=1, usage="broadcast <message>"))
-        self.command_registry.register(Command("kick", self.handle_kick_cmd, admin_only=True, args_required=1, usage="kick <username>"))
-        self.command_registry.register(Command("switchuser", self.handle_switchuser_cmd, admin_only=True, args_required=1, usage="switchuser <username>"))
-        self.command_registry.register(Command("script", self.handle_script_cmd, admin_only=True, args_required=1, usage="script <name>"))
+        self.command_registry.register(Command("kick", self.handle_kick_cmd, admin_only=True, args_required=1, usage="kick <username>", arg_types=["user"]))
+        self.command_registry.register(Command("switchuser", self.handle_switchuser_cmd, admin_only=True, args_required=1, usage="switchuser <username>", arg_types=["user"]))
+        self.command_registry.register(Command("script", self.handle_script_cmd, admin_only=True, args_required=1, usage="script <name>", arg_types=["script"]))
     
     def load_data(self):
         """Load all data from YAML files"""
@@ -426,38 +426,72 @@ class TextSpaceServer:
             try:
                 partial = request.args.get('partial', '').lower()
                 username = request.args.get('user', '')
+                full_text = request.args.get('text', partial)  # Full command text for context
                 
-                logger.info(f"Completions request: partial='{partial}', user='{username}'")
+                logger.info(f"Completions request: partial='{partial}', user='{username}', text='{full_text}'")
                 
                 completions = []
                 if username in self.web_users:
                     web_user = self.web_users[username]
                     logger.info(f"Found user {username}, admin={web_user.admin}")
                     
-                    # Get matching commands from registry
-                    for cmd_name, cmd in self.command_registry.commands.items():
-                        # Check admin permissions
-                        if cmd.admin_only and not web_user.admin:
-                            continue
-                        
-                        # Check if command matches partial
-                        if cmd_name.startswith(partial):
-                            completions.append({
-                                'name': cmd_name,
-                                'usage': cmd.usage,
-                                'aliases': cmd.aliases,
-                                'admin_only': cmd.admin_only
-                            })
-                        
-                        # Check aliases too
-                        for alias in cmd.aliases:
-                            if alias.startswith(partial) and alias not in [c['name'] for c in completions]:
+                    # Parse the full text to determine if we're completing a command or argument
+                    words = full_text.split()
+                    
+                    if len(words) <= 1:
+                        # Completing command name
+                        for cmd_name, cmd in self.command_registry.commands.items():
+                            # Check admin permissions
+                            if cmd.admin_only and not web_user.admin:
+                                continue
+                            
+                            # Check if command matches partial
+                            if cmd_name.startswith(partial):
                                 completions.append({
-                                    'name': alias,
+                                    'name': cmd_name,
                                     'usage': cmd.usage,
-                                    'aliases': [],
+                                    'aliases': cmd.aliases,
                                     'admin_only': cmd.admin_only
                                 })
+                            
+                            # Check aliases too
+                            for alias in cmd.aliases:
+                                if alias.startswith(partial) and alias not in [c['name'] for c in completions]:
+                                    completions.append({
+                                        'name': alias,
+                                        'usage': cmd.usage,
+                                        'aliases': [],
+                                        'admin_only': cmd.admin_only
+                                    })
+                    
+                    else:
+                        # Completing command argument
+                        cmd_name = words[0].lower()
+                        resolved_cmd = self.resolve_command(cmd_name, web_user.admin)
+                        
+                        # Handle ambiguous commands
+                        if resolved_cmd.startswith("AMBIGUOUS:"):
+                            matches = resolved_cmd.split(":")[1].split(",")
+                            if len(matches) == 2:
+                                resolved_cmd = matches[0]
+                        
+                        command_def = self.command_registry.get_command(resolved_cmd)
+                        if command_def and command_def.arg_types:
+                            arg_index = len(words) - 2  # Current argument index (0-based)
+                            if arg_index < len(command_def.arg_types):
+                                arg_type = command_def.arg_types[arg_index]
+                                context_items = self.get_completion_context(username, arg_type)
+                                
+                                # Filter context items by partial match
+                                for item in context_items:
+                                    if item.lower().startswith(partial):
+                                        completions.append({
+                                            'name': item,
+                                            'usage': f"{command_def.name} {item}",
+                                            'aliases': [],
+                                            'admin_only': False,
+                                            'type': 'argument'
+                                        })
                 
                 logger.info(f"Returning {len(completions)} completions")
                 return jsonify({'completions': completions})
@@ -597,6 +631,66 @@ class TextSpaceServer:
                 return f"Error executing command: {str(e)}"
         
         return f"Unknown command: {cmd}. Type 'help' for available commands."
+    
+    def get_completion_context(self, username, arg_type):
+        """Get contextual completion options based on argument type"""
+        if username not in self.web_users:
+            return []
+        
+        web_user = self.web_users[username]
+        room = self.rooms.get(web_user.room_id)
+        
+        if arg_type == "room_item":
+            # Items available in the current room
+            if room:
+                return [self.items[item_id].name for item_id in room.items if item_id in self.items]
+        
+        elif arg_type == "inventory_item":
+            # Items in user's inventory
+            return [self.items[item_id].name for item_id in web_user.inventory if item_id in self.items]
+        
+        elif arg_type == "examinable":
+            # Items that can be examined (room items + inventory + users + bots)
+            examinable = []
+            if room:
+                # Room items
+                examinable.extend([self.items[item_id].name for item_id in room.items if item_id in self.items])
+                # Other users in room
+                examinable.extend([user for user in room.users if user != username])
+                # Visible bots in room
+                examinable.extend([bot.name for bot in self.bots.values() if bot.room_id == web_user.room_id and bot.visible])
+            # User's inventory
+            examinable.extend([self.items[item_id].name for item_id in web_user.inventory if item_id in self.items])
+            return examinable
+        
+        elif arg_type == "openable" or arg_type == "closeable":
+            # Items that can be opened/closed (room items + inventory)
+            openable = []
+            if room:
+                openable.extend([self.items[item_id].name for item_id in room.items if item_id in self.items])
+            openable.extend([self.items[item_id].name for item_id in web_user.inventory if item_id in self.items])
+            return openable
+        
+        elif arg_type == "direction":
+            # Available exits from current room
+            if room and room.exits:
+                return list(room.exits.keys())
+        
+        elif arg_type == "room":
+            # All available rooms (admin only)
+            if web_user.admin:
+                return list(self.rooms.keys())
+        
+        elif arg_type == "user":
+            # All online users
+            return list(self.web_users.keys())
+        
+        elif arg_type == "script":
+            # Available scripts (admin only)
+            if web_user.admin:
+                return list(self.scripts.keys())
+        
+        return []
     
     # Command handler methods for registry
     def handle_help(self, web_user, args):

@@ -5,13 +5,14 @@ Provides a generalized command parser with metadata-driven validation
 
 class Command:
     """Represents a command with its metadata and validation rules"""
-    def __init__(self, name, handler, admin_only=False, args_required=0, usage="", aliases=None):
+    def __init__(self, name, handler, admin_only=False, args_required=0, usage="", aliases=None, arg_types=None):
         self.name = name
         self.handler = handler
         self.admin_only = admin_only
         self.args_required = args_required
         self.usage = usage
         self.aliases = aliases or []
+        self.arg_types = arg_types or []  # List of argument types for completion
 
 class CommandRegistry:
     """Registry for all available commands"""

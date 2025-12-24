@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.7.5"
+VERSION = "2.7.6"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -867,14 +867,26 @@ class TextSpaceServer:
                 if item.name.lower() == target_name.lower():
                     return f"{item.name}: {item.description}"
         
-        # Check room items
+        # Check room items (including items in open containers)
         room = self.rooms.get(web_user.room_id)
         if room:
+            # Check direct room items
             for item_id in room.items:
                 if item_id in self.items:
                     item = self.items[item_id]
                     if item.name.lower() == target_name.lower():
                         return f"{item.name}: {item.description}"
+            
+            # Check items in open containers
+            for item_id in room.items:
+                if item_id in self.items:
+                    container = self.items[item_id]
+                    if container.is_container and hasattr(container, 'is_open') and container.is_open:
+                        for content_id in container.contents:
+                            if content_id in self.items:
+                                item = self.items[content_id]
+                                if item.name.lower() == target_name.lower():
+                                    return f"{item.name}: {item.description}"
             
             # Check other users in room
             for user_name in room.users:

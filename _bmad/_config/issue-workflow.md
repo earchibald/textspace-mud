@@ -39,7 +39,8 @@ Structured workflow for handling GitHub issues from analysis through resolution,
 - **Provide testing evidence** (screenshots, logs, etc.)
 - **Confirm requirements met** against original issue
 - **Request stakeholder review** and approval
-- **Ask for permission to close** the issue
+- **Ask for explicit permission to close** the issue
+- **NEVER auto-close GitHub issues** without user confirmation
 
 ### 6. Iteration Loop (if needed)
 If approval is not granted:
@@ -48,6 +49,15 @@ If approval is not granted:
 - **Re-test updated solution** thoroughly
 - **Return to Step 5** with improved implementation
 - **Repeat until approved** by stakeholders
+
+## Critical Rule: Issue Closure Authority
+
+**The prompt user (stakeholder) has final authority over issue closure, not the implementer.**
+
+- ✅ **Correct**: "MOTD implemented and tested. Ready to close issue #3?"
+- ❌ **Wrong**: Auto-closing issues after implementation
+- ✅ **Wait for**: Explicit "yes, close it" confirmation
+- ❌ **Never**: Assume completion means closure approval
 
 ## Best Practices
 
@@ -86,9 +96,31 @@ Issue: "Add tab completion for empty input"
 3. COMMENT: "I'll modify the completion API to return help text for empty input..."
 4. IMPLEMENT: Update server API and client JavaScript
 5. TEST: Verify TAB on empty line shows organized help
-6. REQUEST: "Tab completion now shows organized help. Ready to close?"
-7. APPROVED: Issue closed after stakeholder confirmation
+6. REQUEST: "Tab completion now shows organized help. All requirements met. Ready to close?"
+7. WAIT: For explicit stakeholder approval
+8. CLOSE: Only after receiving "yes, close it" confirmation
 ```
+
+## Issue Closure Protocol
+
+**Required Comment Format:**
+```
+✅ [Feature] implemented and tested successfully. 
+
+Requirements verification:
+- ✅ Requirement 1: Evidence/example
+- ✅ Requirement 2: Evidence/example  
+- ✅ Requirement 3: Evidence/example
+
+Testing completed:
+- ✅ Local testing passed
+- ✅ Production deployment verified
+- ✅ No regressions detected
+
+**Ready to close this issue?**
+```
+
+**Wait for explicit approval before closing.**
 
 ## Issue States
 
@@ -108,6 +140,15 @@ Issue: "Add tab completion for empty input"
 
 - ✅ Original issue requirements fully met
 - ✅ No regression in existing functionality  
-- ✅ Stakeholder approval obtained
+- ✅ **Explicit stakeholder approval obtained**
 - ✅ Implementation tested and verified
 - ✅ Documentation updated as needed
+- ✅ **Issue closed only after user confirmation**
+
+## Process Violations to Avoid
+
+- ❌ **Auto-closing issues** after implementation
+- ❌ **Assuming completion** means closure approval
+- ❌ **Closing without explicit permission** from stakeholder
+- ❌ **Skipping the approval request** step
+- ❌ **Acting as both implementer and approver**

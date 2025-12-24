@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.4.0"
+VERSION = "2.4.1"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -436,10 +436,16 @@ class TextSpaceServer:
                     logger.info(f"Found user {username}, admin={web_user.admin}")
                     
                     # Parse the full text to determine if we're completing a command or argument
-                    words = full_text.split()
+                    words = full_text.strip().split()
+                    logger.info(f"Parsed words: {words}, length: {len(words)}")
                     
-                    if len(words) <= 1:
+                    # If we have a space at the end or multiple words, we're completing arguments
+                    is_argument_completion = len(words) > 1 or (full_text.endswith(' ') and len(words) >= 1)
+                    logger.info(f"Is argument completion: {is_argument_completion}")
+                    
+                    if not is_argument_completion:
                         # Completing command name
+                        logger.info("Completing command name")
                         for cmd_name, cmd in self.command_registry.commands.items():
                             # Check admin permissions
                             if cmd.admin_only and not web_user.admin:
@@ -466,8 +472,10 @@ class TextSpaceServer:
                     
                     else:
                         # Completing command argument
+                        logger.info("Completing command argument")
                         cmd_name = words[0].lower()
                         resolved_cmd = self.resolve_command(cmd_name, web_user.admin)
+                        logger.info(f"Command: {cmd_name}, resolved: {resolved_cmd}")
                         
                         # Handle ambiguous commands
                         if resolved_cmd.startswith("AMBIGUOUS:"):
@@ -476,11 +484,24 @@ class TextSpaceServer:
                                 resolved_cmd = matches[0]
                         
                         command_def = self.command_registry.get_command(resolved_cmd)
+                        logger.info(f"Command def: {command_def}, arg_types: {command_def.arg_types if command_def else None}")
+                        
                         if command_def and command_def.arg_types:
-                            arg_index = len(words) - 2  # Current argument index (0-based)
+                            # Determine which argument we're completing
+                            if full_text.endswith(' '):
+                                # Starting a new argument
+                                arg_index = len(words) - 1
+                            else:
+                                # Completing current argument
+                                arg_index = len(words) - 2
+                            
+                            logger.info(f"Argument index: {arg_index}")
+                            
                             if arg_index < len(command_def.arg_types):
                                 arg_type = command_def.arg_types[arg_index]
+                                logger.info(f"Argument type: {arg_type}")
                                 context_items = self.get_completion_context(username, arg_type)
+                                logger.info(f"Context items: {context_items}")
                                 
                                 # Filter context items by partial match
                                 for item in context_items:

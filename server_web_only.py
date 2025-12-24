@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.4.3"
+VERSION = "2.5.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -154,7 +154,7 @@ class TextSpaceServer:
         self.command_registry.register(Command("help", self.handle_help, usage="help"))
         self.command_registry.register(Command("version", self.handle_version, usage="version"))
         self.command_registry.register(Command("whoami", self.handle_whoami, usage="whoami"))
-        self.command_registry.register(Command("look", self.handle_look, usage="look", aliases=["l"]))
+        self.command_registry.register(Command("look", self.handle_look_cmd, usage="look [target]", aliases=["l", "examine", "exam"], arg_types=["examinable"]))
         self.command_registry.register(Command("who", self.handle_who, usage="who"))
         self.command_registry.register(Command("inventory", self.handle_inventory, usage="inventory", aliases=["i"]))
         
@@ -165,7 +165,7 @@ class TextSpaceServer:
         # Item commands with contextual completion
         self.command_registry.register(Command("get", self.handle_get_cmd, args_required=1, usage="get <item>", aliases=["take"], arg_types=["room_item"]))
         self.command_registry.register(Command("drop", self.handle_drop_cmd, args_required=1, usage="drop <item>", arg_types=["inventory_item"]))
-        self.command_registry.register(Command("examine", self.handle_examine_cmd, args_required=1, usage="examine <item>", aliases=["exam"], arg_types=["examinable"]))
+        self.command_registry.register(Command("look", self.handle_look_cmd, usage="look [target]", aliases=["l", "examine", "exam"], arg_types=["examinable"]))
         self.command_registry.register(Command("use", self.handle_use_cmd, args_required=1, usage="use <item>", arg_types=["inventory_item"]))
         self.command_registry.register(Command("open", self.handle_open_cmd, args_required=1, usage="open <item>", arg_types=["openable"]))
         self.command_registry.register(Command("close", self.handle_close_cmd, args_required=1, usage="close <item>", arg_types=["closeable"]))
@@ -730,6 +730,54 @@ class TextSpaceServer:
     def handle_look(self, web_user, args):
         return self.get_room_description(web_user.room_id, web_user.name)
     
+    def handle_look_cmd(self, web_user, args):
+        """Handle look command - room description or examine target"""
+        if not args:
+            # Bare 'look' - show room description
+            return self.get_room_description(web_user.room_id, web_user.name)
+        else:
+            # 'look <target>' - examine the target
+            target_name = " ".join(args)
+            return self.handle_examine_target(web_user, target_name)
+    
+    def handle_examine_target(self, web_user, target_name):
+        """Handle examining a specific target (items, users, bots)"""
+        # Check inventory first
+        for item_id in web_user.inventory:
+            if item_id in self.items:
+                item = self.items[item_id]
+                if item.name.lower() == target_name.lower():
+                    return f"{item.name}: {item.description}"
+        
+        # Check room items
+        room = self.rooms.get(web_user.room_id)
+        if room:
+            for item_id in room.items:
+                if item_id in self.items:
+                    item = self.items[item_id]
+                    if item.name.lower() == target_name.lower():
+                        return f"{item.name}: {item.description}"
+            
+            # Check other users in room
+            for user_name in room.users:
+                if user_name != web_user.name and user_name.lower() == target_name.lower():
+                    if user_name in self.web_users:
+                        target_user = self.web_users[user_name]
+                        admin_status = " (admin)" if target_user.admin else ""
+                        return f"{user_name}{admin_status}: Another player exploring the space."
+                    return f"{user_name}: Another visitor to this place."
+            
+            # Check bots in room (visibility depends on user permissions)
+            for bot in self.bots.values():
+                if bot.room_id == web_user.room_id:
+                    if bot.name.lower() == target_name.lower():
+                        # Regular users can only examine visible bots, admins can examine all
+                        if bot.visible or web_user.admin:
+                            visibility_note = " (invisible)" if not bot.visible else ""
+                            return f"{bot.name}{visibility_note}: {bot.description}"
+        
+        return f"You don't see '{target_name}' here."
+    
     def handle_who(self, web_user, args):
         return self.get_who_list()
     
@@ -754,8 +802,9 @@ class TextSpaceServer:
         return self.handle_drop_item(web_user, item_name)
     
     def handle_examine_cmd(self, web_user, args):
-        item_name = " ".join(args)
-        return self.handle_examine_item(web_user, item_name)
+        """Legacy examine command - redirect to look"""
+        target_name = " ".join(args)
+        return self.handle_examine_target(web_user, target_name)
     
     def handle_use_cmd(self, web_user, args):
         item_name = " ".join(args)

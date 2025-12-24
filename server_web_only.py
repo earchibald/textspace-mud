@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.7.1"
+VERSION = "2.7.2"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -661,7 +661,7 @@ class TextSpaceServer:
             
             logger.info(f"Web user '{username}' logged in (admin: {admin})")
             
-            emit('login_response', {'success': True, 'admin': admin})
+            emit('login_response', {'success': True, 'admin': admin, 'username': username})
             emit('message', {'text': f'Welcome, {username}! Type "help" for commands.'})
             
             # Show MOTD if set

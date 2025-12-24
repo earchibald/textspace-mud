@@ -204,23 +204,14 @@
         socket.on('login_response', (data) => {
             if (data.success) {
                 loggedIn = true;
+                currentUser = data.username; // Set current user directly from response
                 addMessage('Login successful! Type "help" for commands.');
                 if (data.admin) {
                     addMessage('You have admin privileges.');
                 }
                 
                 // Store username in localStorage for auto-login
-                // Get username from the last command sent
-                const messages = document.querySelectorAll('#output .message');
-                for (let i = messages.length - 1; i >= 0; i--) {
-                    const msg = messages[i].textContent;
-                    if (msg.startsWith('> ') && !msg.includes(' ')) {
-                        const username = msg.substring(2);
-                        localStorage.setItem('textspace_username', username);
-                        currentUser = username; // Set current user for tab completion
-                        break;
-                    }
-                }
+                localStorage.setItem('textspace_username', data.username);
             } else {
                 addMessage('Login failed: ' + data.message);
                 loggedIn = false;

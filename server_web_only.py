@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.7.3"
+VERSION = "2.7.4"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -518,20 +518,20 @@ class TextSpaceServer:
                             if cmd_name.startswith(partial):
                                 completions.append({
                                     'name': cmd_name,
+                                    'usage': cmd.usage,
+                                    'aliases': cmd.aliases,
+                                    'admin_only': cmd.admin_only
+                                })
+                            
+                            # Check aliases too (separate from main command check)
+                            for alias in cmd.aliases:
+                                if alias.startswith(partial) and alias not in [c['name'] for c in completions]:
+                                    completions.append({
+                                        'name': alias,
                                         'usage': cmd.usage,
-                                        'aliases': cmd.aliases,
+                                        'aliases': [],
                                         'admin_only': cmd.admin_only
                                     })
-                                
-                                # Check aliases too
-                                for alias in cmd.aliases:
-                                    if alias.startswith(partial) and alias not in [c['name'] for c in completions]:
-                                        completions.append({
-                                            'name': alias,
-                                            'usage': cmd.usage,
-                                            'aliases': [],
-                                            'admin_only': cmd.admin_only
-                                        })
                 
                 else:
                     # Completing command argument

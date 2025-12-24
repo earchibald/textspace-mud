@@ -79,9 +79,9 @@ curl -s "https://exciting-liberation-production.up.railway.app/api/status" | pyt
 
 ### Version History Tracking
 - Use semantic versioning consistently
-- Tag releases: `git tag v2.5.2 && git push origin --tags`
+- Tag releases: `git tag v2.7.4 && git push origin --tags`
 - Document changes in commit messages
-- Track progression: 2.1.0 → 2.5.2 (current)
+- Track progression: 2.1.0 → 2.7.4 (current)
 
 ## Monitoring & Rollback
 

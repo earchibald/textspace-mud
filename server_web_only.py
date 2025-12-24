@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -427,9 +427,12 @@ class TextSpaceServer:
                 partial = request.args.get('partial', '').lower()
                 username = request.args.get('user', '')
                 
+                logger.info(f"Completions request: partial='{partial}', user='{username}'")
+                
                 completions = []
                 if username in self.web_users:
                     web_user = self.web_users[username]
+                    logger.info(f"Found user {username}, admin={web_user.admin}")
                     
                     # Get matching commands from registry
                     for cmd_name, cmd in self.command_registry.commands.items():
@@ -456,8 +459,10 @@ class TextSpaceServer:
                                     'admin_only': cmd.admin_only
                                 })
                 
+                logger.info(f"Returning {len(completions)} completions")
                 return jsonify({'completions': completions})
             except Exception as e:
+                logger.error(f"Completions API error: {e}")
                 return jsonify({'error': str(e)}), 500
         
         @self.socketio.on('connect')

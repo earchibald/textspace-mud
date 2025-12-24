@@ -31,24 +31,29 @@
 2. **Update Version**
    ```bash
    # Update VERSION in server_web_only.py
-   # Current: 2.0.26 → New Feature: 2.1.0
+   # Current: 2.2.0 → New Feature: 2.3.0
    ```
 
 3. **Commit and Tag**
    ```bash
    git add .
-   git commit -m "feat: admin/user bot visibility differentiation v2.1.0"
-   git tag v2.1.0
+   git commit -m "feat: tab completion v2.3.0"
+   git tag v2.3.0
    git push origin main --tags
    ```
 
-4. **Deploy and Test**
-   - Verify deployment
+4. **Deploy to Railway**
+   ```bash
+   railway up
+   ```
+
+5. **Validate Deployment**
+   - Check server_status() for new version number
    - Test new functionality
-   - Monitor for issues
+   - Monitor server logs for issues
 
 ### Current Change Analysis
-- **Bot visibility differentiation**: New feature
-- **Admin vs user views**: Backward compatible
+- **Generalized command parser**: New feature
+- **Improved argument validation**: Backward compatible
 - **No breaking changes**: Existing functionality preserved
-- **Version bump**: 2.0.26 → 2.1.0 (MINOR)
+- **Version bump**: 2.1.0 → 2.2.0 (MINOR)

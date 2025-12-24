@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.7.4"
+VERSION = "2.7.5"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -759,20 +759,41 @@ class TextSpaceServer:
         room = self.rooms.get(web_user.room_id)
         
         if arg_type == "room_item":
-            # Items available in the current room
+            # Items available in the current room (including items in open containers)
             if room:
-                return [self.items[item_id].name for item_id in room.items if item_id in self.items]
+                available_items = []
+                # Direct room items
+                for item_id in room.items:
+                    if item_id in self.items:
+                        available_items.append(self.items[item_id].name)
+                        # Check if this item is an open container
+                        item = self.items[item_id]
+                        if item.is_container and hasattr(item, 'is_open') and item.is_open:
+                            # Add items from open container
+                            for content_id in item.contents:
+                                if content_id in self.items:
+                                    available_items.append(self.items[content_id].name)
+                return available_items
         
         elif arg_type == "inventory_item":
             # Items in user's inventory
             return [self.items[item_id].name for item_id in web_user.inventory if item_id in self.items]
         
         elif arg_type == "examinable":
-            # Items that can be examined (room items + inventory + users + bots)
+            # Items that can be examined (room items + inventory + users + bots + items in open containers)
             examinable = []
             if room:
-                # Room items
-                examinable.extend([self.items[item_id].name for item_id in room.items if item_id in self.items])
+                # Room items (including items in open containers)
+                for item_id in room.items:
+                    if item_id in self.items:
+                        examinable.append(self.items[item_id].name)
+                        # Check if this item is an open container
+                        item = self.items[item_id]
+                        if item.is_container and hasattr(item, 'is_open') and item.is_open:
+                            # Add items from open container
+                            for content_id in item.contents:
+                                if content_id in self.items:
+                                    examinable.append(self.items[content_id].name)
                 # Other users in room
                 examinable.extend([user for user in room.users if user != username])
                 # Bots in room (visibility depends on user permissions)

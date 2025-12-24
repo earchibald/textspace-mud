@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.7.6"
+VERSION = "2.8.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -166,6 +166,8 @@ class TextSpaceServer:
         # Item commands with contextual completion
         self.command_registry.register(Command("get", self.handle_get_cmd, args_required=1, usage="get <item>", aliases=["take"], arg_types=["room_item"]))
         self.command_registry.register(Command("drop", self.handle_drop_cmd, args_required=1, usage="drop <item>", arg_types=["inventory_item"]))
+        self.command_registry.register(Command("put", self.handle_put_cmd, args_required=1, usage="put <item> [in <container>]", arg_types=["inventory_item", "preposition", "open_container"]))
+        self.command_registry.register(Command("give", self.handle_give_cmd, args_required=1, usage="give <item> to <target>", arg_types=["inventory_item", "preposition", "give_target"]))
         self.command_registry.register(Command("look", self.handle_look_cmd, usage="look [target]", aliases=["l", "examine", "exam"], arg_types=["examinable"]))
         self.command_registry.register(Command("use", self.handle_use_cmd, args_required=1, usage="use <item>", arg_types=["inventory_item"]))
         self.command_registry.register(Command("open", self.handle_open_cmd, args_required=1, usage="open <item>", arg_types=["openable"]))
@@ -492,6 +494,7 @@ class TextSpaceServer:
                         help_text += "  Basic:        help, version, whoami, who, motd, quit (logout)\n"
                         help_text += "  Look:         look (l, examine, exam) [target]\n"
                         help_text += "  Items:        get (take) <item>, drop <item>, use <item>\n"
+                        help_text += "  Complex:      put <item> [in <container>], give <item> to <target>\n"
                         help_text += "  Interact:     open <item>, close <item>\n"
                         help_text += "  Chat:         say <message>, whisper <target> <message>\n"
                         help_text += "  Movement:     go (move, g) <direction>, north (n), south (s), east (e), west (w)\n"
@@ -813,6 +816,34 @@ class TextSpaceServer:
             openable.extend([self.items[item_id].name for item_id in web_user.inventory if item_id in self.items])
             return openable
         
+        elif arg_type == "open_container":
+            # Containers that are currently open
+            open_containers = []
+            if room:
+                for item_id in room.items:
+                    if item_id in self.items:
+                        item = self.items[item_id]
+                        if item.is_container and hasattr(item, 'is_open') and item.is_open:
+                            open_containers.append(item.name)
+            return open_containers
+        
+        elif arg_type == "give_target":
+            # Users and bots that can receive items
+            targets = []
+            if room:
+                # Other users in room
+                targets.extend([user for user in room.users if user != username])
+                # Visible bots in room
+                for bot in self.bots.values():
+                    if bot.room_id == web_user.room_id:
+                        if bot.visible or web_user.admin:
+                            targets.append(bot.name)
+            return targets
+        
+        elif arg_type == "preposition":
+            # Context-aware preposition suggestions
+            return ["in", "to"]
+        
         elif arg_type == "direction":
             # Available exits from current room
             if room and room.exits:
@@ -1010,6 +1041,146 @@ class TextSpaceServer:
             else:
                 return "📢 Message of the day cleared."
     
+    def parse_complex_command(self, args):
+        """Parse complex commands with prepositions using pattern matching"""
+        # Convert to string for easier parsing
+        args_str = " ".join(args)
+        
+        # Handle put ITEM in CONTAINER
+        if " in " in args_str:
+            parts = args_str.split(" in ", 1)
+            if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+                return "put_in", [parts[0].strip(), parts[1].strip()]
+        
+        # Handle give ITEM to TARGET
+        if " to " in args_str:
+            parts = args_str.split(" to ", 1)
+            if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+                return "give_to", [parts[0].strip(), parts[1].strip()]
+        
+        # Handle put ITEM (simple drop)
+        if args:
+            return "put_simple", [args_str.strip()]
+        
+        # No match
+        return "unknown", args
+    
+    def handle_put_cmd(self, web_user, args):
+        """Handle put command with complex grammar"""
+        command_type, parsed_args = self.parse_complex_command(args)
+        
+        match command_type:
+            case "put_simple":
+                # put ITEM (same as drop)
+                return self.handle_drop_item(web_user, parsed_args[0])
+            case "put_in":
+                # put ITEM in CONTAINER
+                return self.handle_put_in_container(web_user, parsed_args[0], parsed_args[1])
+            case _:
+                return f"Usage: put <item> [in <container>]"
+    
+    def handle_give_cmd(self, web_user, args):
+        """Handle give command with complex grammar"""
+        command_type, parsed_args = self.parse_complex_command(args)
+        
+        match command_type:
+            case "give_to":
+                # give ITEM to TARGET
+                return self.handle_give_to_target(web_user, parsed_args[0], parsed_args[1])
+            case _:
+                return f"Usage: give <item> to <target>"
+    
+    def handle_put_in_container(self, web_user, item_name, container_name):
+        """Handle putting an item into a container"""
+        # Find item in inventory
+        item_id = None
+        for inv_item_id in web_user.inventory:
+            if inv_item_id in self.items:
+                item = self.items[inv_item_id]
+                if item.name.lower() == item_name.lower():
+                    item_id = inv_item_id
+                    break
+        
+        if not item_id:
+            return f"You don't have '{item_name}'."
+        
+        # Find container in room
+        room = self.rooms.get(web_user.room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        container_id = None
+        for room_item_id in room.items:
+            if room_item_id in self.items:
+                container = self.items[room_item_id]
+                if container.name.lower() == container_name.lower():
+                    if not container.is_container:
+                        return f"You can't put things in {container.name}."
+                    if not (hasattr(container, 'is_open') and container.is_open):
+                        return f"The {container.name} is closed."
+                    container_id = room_item_id
+                    break
+        
+        if not container_id:
+            return f"You don't see '{container_name}' here."
+        
+        # Move item from inventory to container
+        web_user.inventory.remove(item_id)
+        self.items[container_id].contents.append(item_id)
+        self.save_user_data(web_user)
+        
+        item = self.items[item_id]
+        container = self.items[container_id]
+        self.send_to_room(web_user.room_id, f"{web_user.name} puts {item.name} in {container.name}.", exclude_user=web_user.name)
+        return f"You put {item.name} in {container.name}."
+    
+    def handle_give_to_target(self, web_user, item_name, target_name):
+        """Handle giving an item to a target"""
+        # Find item in inventory
+        item_id = None
+        for inv_item_id in web_user.inventory:
+            if inv_item_id in self.items:
+                item = self.items[inv_item_id]
+                if item.name.lower() == item_name.lower():
+                    item_id = inv_item_id
+                    break
+        
+        if not item_id:
+            return f"You don't have '{item_name}'."
+        
+        room = self.rooms.get(web_user.room_id)
+        if not room:
+            return "You are in an unknown location."
+        
+        # Check for user target
+        for user_name in room.users:
+            if user_name != web_user.name and user_name.lower() == target_name.lower():
+                if user_name in self.web_users:
+                    target_user = self.web_users[user_name]
+                    # Move item from giver to receiver
+                    web_user.inventory.remove(item_id)
+                    target_user.inventory.append(item_id)
+                    self.save_user_data(web_user)
+                    self.save_user_data(target_user)
+                    
+                    item = self.items[item_id]
+                    self.send_to_room(web_user.room_id, f"{web_user.name} gives {item.name} to {user_name}.")
+                    return f"You give {item.name} to {user_name}."
+                else:
+                    return f"{user_name} is not available to receive items."
+        
+        # Check for bot target
+        for bot in self.bots.values():
+            if bot.room_id == web_user.room_id and bot.name.lower() == target_name.lower():
+                if bot.visible or web_user.admin:
+                    # For now, bots just acknowledge the gift but don't keep it
+                    item = self.items[item_id]
+                    self.send_to_room(web_user.room_id, f"{web_user.name} offers {item.name} to {bot.name}.")
+                    self.send_to_room(web_user.room_id, f"{bot.name} says: 'Thank you, but I cannot accept gifts right now.'")
+                    return f"You offer {item.name} to {bot.name}, but they politely decline."
+        
+        return f"You don't see '{target_name}' here."
+
     def handle_quit_cmd(self, web_user, args):
         """Handle quit/logout command - clean logout with session cleanup"""
         username = web_user.name
@@ -1081,6 +1252,8 @@ Available commands:
   inventory (i) - Show your items
   get <item> - Pick up an item
   drop <item> - Drop an item
+  put <item> [in <container>] - Put item down or in container
+  give <item> to <target> - Give item to user or bot
   examine <item> - Look at an item closely
   use <item> - Use an item
   open <item> - Open a container

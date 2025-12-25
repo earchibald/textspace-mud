@@ -1,13 +1,14 @@
 {
   "name": "TextSpace Dev",
   "image": "mcr.microsoft.com/devcontainers/python:3.10",
+  "runArgs": ["--platform=linux/amd64"],
   "remoteUser": "vscode",
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
     }
   },
-  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt && npm install -g @railway/cli",
+  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt && (npm install -g @railway/cli || echo 'Railway CLI install failed - see RAILWAY_CLI_SETUP.md for manual installation')",
   "forwardPorts": [8080],
   "remoteEnv": {
     "PORT": "8080"

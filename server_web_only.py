@@ -674,13 +674,22 @@ class TextSpaceServer:
                 
                 logger.info(f"MCP user '{username}' logged in (admin: {admin})")
                 
-                return jsonify({
+                # Build response with environment info for admin users
+                response_data = {
                     'success': True,
                     'username': username,
                     'admin': admin,
                     'room_id': web_user.room_id,
                     'message': f'MCP user {username} logged in successfully'
-                })
+                }
+                
+                if admin:
+                    import os
+                    env_name = os.environ.get('RAILWAY_ENVIRONMENT_NAME', 'local')
+                    response_data['environment'] = env_name
+                    response_data['message'] += f' (Environment: {env_name})'
+                
+                return jsonify(response_data)
                 
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
@@ -850,6 +859,12 @@ class TextSpaceServer:
             
             emit('login_response', {'success': True, 'admin': admin, 'username': username})
             emit('message', {'text': f'Welcome, {username}! Type "help" for commands.'})
+            
+            # Show environment name for admin users
+            if admin:
+                import os
+                env_name = os.environ.get('RAILWAY_ENVIRONMENT_NAME', 'local')
+                emit('message', {'text': f'🔧 Environment: {env_name}'})
             
             # Show MOTD if set
             if self.motd:

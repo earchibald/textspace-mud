@@ -5,12 +5,13 @@
 ✅ **Develop Branch Created**
 - New `develop` branch for ongoing development
 - All feature development goes to develop first
-- develop automatically deploys to Railway Dev environment
+- **Status**: Branch created but NOT YET connected to Railway Dev
 
-✅ **Multi-Environment Railway Setup**
+⏳ **Multi-Environment Railway Setup** (Pending Connection)
 - `railway-dev.json` - Configuration for development environment
 - Separate environment variables for dev vs production
 - Environment detection in startup script
+- **Status**: Configuration ready, needs to be connected via Railway Dashboard
 
 ✅ **VS Code Deployment Tasks**
 - `.vscode/tasks.json` with 8 deployment and monitoring tasks
@@ -22,7 +23,35 @@
 - `.devcontainer/railway-dev-setup.md` - Development environment setup
 - Updated deployment process in `_bmad/_config/deployment-process.md`
 
+## ⚠️ IMPORTANT: Connection Required
+
+**The develop branch is NOT YET connected to the Railway dev environment.**
+
+To complete the setup, you must:
+1. Go to Railway Dashboard
+2. Select your `textspace-mud` development environment  
+3. Change Git deployment from `main` to `develop`
+4. Set environment variables
+
+See [.devcontainer/RAILWAY_DEVELOP_BRANCH_SETUP.md](.devcontainer/RAILWAY_DEVELOP_BRANCH_SETUP.md) for detailed instructions.
+
 ## Getting Started
+
+### ⚠️ FIRST: Connect Develop Branch to Railway Dev (REQUIRED STEP)
+
+Before using the workflow below, you must connect the develop branch to Railway's development environment:
+
+**Quick Steps:**
+1. Go to https://railway.app/dashboard
+2. Select `textspace-mud` project → `development` environment
+3. Click the `textspace-mud` service
+4. Click **Settings** → **Git** → Change "Deploy from branch" to **develop**
+5. Go to **Variables** tab and add:
+   - `PORT=8080`
+   - `RAILWAY_ENVIRONMENT_NAME=development`
+6. Save changes
+
+[Detailed guide: .devcontainer/RAILWAY_DEVELOP_BRANCH_SETUP.md](.devcontainer/RAILWAY_DEVELOP_BRANCH_SETUP.md)
 
 ### 1. Understand the Workflow
 Read: `BRANCHING_STRATEGY.md`
@@ -32,7 +61,7 @@ Local Dev (devcontainer)
     ↓
 git feature/xxx → develop
     ↓
-Auto-deploy to Railway Dev
+Auto-deploy to Railway Dev (once configured above)
     ↓
 Test & verify in Dev Railway
     ↓
@@ -153,29 +182,29 @@ curl https://exciting-liberation-production.up.railway.app/api/status | python3 
 
 ## Next Steps
 
-1. **Connect Develop Branch to Development Environment** ⭐ **DO THIS FIRST**
+### 1. **⚠️ REQUIRED: Connect Develop Branch to Development Environment** 
+   
+   **This must be done in Railway Dashboard before development can proceed.**
+   
    - Read: `.devcontainer/RAILWAY_DEVELOP_BRANCH_SETUP.md` for detailed instructions
-   - Quick summary:
+   - **Simplest method**: Use Railway Dashboard UI (no CLI needed)
+     1. Go to https://railway.app/dashboard
+     2. Select `textspace-mud` project → `development` environment
+     3. Click `textspace-mud` service
+     4. Click **Settings** → **Git** → Change branch to **develop**
+     5. Click **Variables** → Add `PORT=8080` and `RAILWAY_ENVIRONMENT_NAME=development`
+     6. Save and wait for deploy
+   
+   - **Alternative**: Use Railway CLI (requires Node.js)
      ```bash
-     # Install Railway CLI (if not already installed)
      npm install -g @railway/cli
-     
-     # Link to development project
      railway link
-     # Select: textspace-mud (development environment)
-     
-     # Set environment variables
      railway variables set PORT 8080
      railway variables set RAILWAY_ENVIRONMENT_NAME development
-     
-     # In Railway Dashboard UI:
-     # Go to service > Settings > Git > Deploy from branch: select "develop"
-     
-     # Test deployment
      railway up
      ```
 
-2. **Start Development**
+### 2. **Start Development** (After step 1 is complete)
    - Create feature branch from develop
    - Make changes
    - Merge to develop

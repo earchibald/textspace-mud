@@ -299,6 +299,15 @@
         function updateRoomInfo(text) {
             // Check if this looks like a room description
             const lines = text.split('\n');
+            
+            // Skip update if this is help text or other special content
+            if (text.includes('Available Commands:') || 
+                text.includes('Type "help"') ||
+                text.includes('📢 Message of the Day:') ||
+                text.includes('🔧 Environment:')) {
+                return;
+            }
+            
             if (lines.length >= 2 && !text.startsWith('>') && !text.includes('says:') && !text.includes('whispers:')) {
                 // First line is likely the room name
                 const roomName = lines[0].trim();

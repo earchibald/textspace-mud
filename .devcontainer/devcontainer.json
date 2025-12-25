@@ -2,7 +2,11 @@
   "name": "TextSpace Dev",
   "image": "mcr.microsoft.com/devcontainers/python:3.10-bullseye",
   "remoteUser": "vscode",
-  "features": {},
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
   "postCreateCommand": "bash -c 'sudo apt-get update && sudo apt-get install -y curl build-essential procps file git && pip install --no-cache-dir -r requirements.txt && NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" && (echo; echo \"eval \\\"\\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\\\"\" ) >> ~/.bashrc && eval \"$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\" && brew install railway'",
   "forwardPorts": [8080],
   "remoteEnv": {

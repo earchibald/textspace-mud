@@ -672,7 +672,7 @@ class TextSpaceServer:
                     'session_id': web_user.session_id,
                     'admin': admin,
                     'room_id': web_user.room_id,
-                    'login_time': datetime.now().isoformat()
+                    'login_time': datetime.utcnow().isoformat()
                 }
                 self.mcp_current_user = username
                 

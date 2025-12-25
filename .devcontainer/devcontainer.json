@@ -3,7 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.10-bullseye",
   "remoteUser": "vscode",
   "features": {},
-  "postCreateCommand": "bash -c 'sudo apt-get update && sudo apt-get install -y curl build-essential procps file git && pip install --no-cache-dir -r requirements.txt && /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" && (echo; echo \"eval \\\"\\$($(brew --prefix)/bin/brew shellenv)\\\"\" ) >> ~/.bashrc && eval \"$($(brew --prefix)/bin/brew shellenv)\" && brew install railway'",
+  "postCreateCommand": "bash -c 'sudo apt-get update && sudo apt-get install -y curl build-essential procps file git && pip install --no-cache-dir -r requirements.txt && NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" && (echo; echo \"eval \\\"\\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\\\"\" ) >> ~/.bashrc && eval \"$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\" && brew install railway'",
   "forwardPorts": [8080],
   "remoteEnv": {
     "PORT": "8080"

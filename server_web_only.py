@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.9.0"
+VERSION = "2.9.1"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -779,8 +779,7 @@ class TextSpaceServer:
                 if self.mcp_current_user and username == self.mcp_current_user:
                     # Use existing MCP session
                     if username in self.web_users:
-                        web_user = self.web_users[username]
-                        result = self.handle_user_command(web_user, command)
+                        result = self.process_command(username, command)
                         return jsonify({
                             'success': True,
                             'result': result,
@@ -789,9 +788,7 @@ class TextSpaceServer:
                         })
                 
                 # Fall back to temporary user context
-                admin = username == "admin" or username == "tester-admin"
-                temp_user = WebUser(name=username, session_id="", admin=admin, room_id="lobby")
-                result = self.handle_user_command(temp_user, command)
+                result = self.process_command(username, command)
                 
                 return jsonify({
                     'success': True,

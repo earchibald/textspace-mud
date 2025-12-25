@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.8.2"
+VERSION = "2.9.0"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -121,6 +121,10 @@ class TextSpaceServer:
         self.web_users = {}
         self.web_sessions = {}
         self.motd = ""  # Message of the Day
+        
+        # MCP session management
+        self.mcp_sessions = {}  # Track MCP user sessions
+        self.mcp_current_user = None  # Current active MCP user
         
         # Command registry
         self.command_registry = CommandRegistry()
@@ -618,6 +622,184 @@ class TextSpaceServer:
                     'motd': self.motd,
                     'message': 'MOTD updated successfully'
                 })
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/mcp/login', methods=['POST'])
+        @require_whitelisted_ip
+        def api_mcp_login():
+            """MCP login - establish user session"""
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({'error': 'No data provided'}), 400
+                
+                username = data.get('username', '').strip()
+                if not username:
+                    return jsonify({'error': 'Username required'}), 400
+                
+                admin = data.get('admin', False) or username == "admin" or username == "tester-admin"
+                
+                # Create WebUser instance
+                web_user = WebUser(
+                    name=username,
+                    session_id=f"mcp_{username}",
+                    authenticated=True,
+                    admin=admin,
+                    room_id='lobby'
+                )
+                
+                # Load user data if exists
+                user_data = self.load_user_data(username)
+                if user_data:
+                    web_user.room_id = user_data.get('room_id', 'lobby')
+                    web_user.inventory = user_data.get('inventory', [])
+                
+                # Add to web_users and sessions
+                self.web_users[username] = web_user
+                self.web_sessions[web_user.session_id] = username
+                
+                # Add to room
+                if web_user.room_id in self.rooms:
+                    self.rooms[web_user.room_id].users.add(username)
+                
+                # Track MCP session
+                self.mcp_sessions[username] = {
+                    'session_id': web_user.session_id,
+                    'admin': admin,
+                    'room_id': web_user.room_id,
+                    'login_time': datetime.now().isoformat()
+                }
+                self.mcp_current_user = username
+                
+                logger.info(f"MCP user '{username}' logged in (admin: {admin})")
+                
+                return jsonify({
+                    'success': True,
+                    'username': username,
+                    'admin': admin,
+                    'room_id': web_user.room_id,
+                    'message': f'MCP user {username} logged in successfully'
+                })
+                
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/mcp/logout', methods=['POST'])
+        @require_whitelisted_ip
+        def api_mcp_logout():
+            """MCP logout - close current session"""
+            try:
+                if not self.mcp_current_user:
+                    return jsonify({'error': 'No active MCP session'}), 400
+                
+                username = self.mcp_current_user
+                
+                # Clean up user state
+                if username in self.web_users:
+                    web_user = self.web_users[username]
+                    
+                    # Remove from room
+                    if web_user.room_id in self.rooms:
+                        self.rooms[web_user.room_id].users.discard(username)
+                    
+                    # Save user data
+                    self.save_user_data(web_user)
+                    
+                    # Remove from web_users and sessions
+                    del self.web_users[username]
+                    if web_user.session_id in self.web_sessions:
+                        del self.web_sessions[web_user.session_id]
+                
+                # Clean up MCP session
+                if username in self.mcp_sessions:
+                    del self.mcp_sessions[username]
+                self.mcp_current_user = None
+                
+                logger.info(f"MCP user '{username}' logged out")
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'MCP user {username} logged out successfully'
+                })
+                
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/mcp/status', methods=['GET'])
+        @require_whitelisted_ip
+        def api_mcp_status():
+            """MCP status - show current session info"""
+            try:
+                if not self.mcp_current_user:
+                    return jsonify({
+                        'logged_in': False,
+                        'message': 'No active MCP session'
+                    })
+                
+                username = self.mcp_current_user
+                session_info = self.mcp_sessions.get(username, {})
+                
+                user_info = {
+                    'logged_in': True,
+                    'username': username,
+                    'admin': session_info.get('admin', False),
+                    'room_id': session_info.get('room_id', 'unknown'),
+                    'login_time': session_info.get('login_time', 'unknown'),
+                    'session_id': session_info.get('session_id', 'unknown')
+                }
+                
+                # Add inventory info if user exists
+                if username in self.web_users:
+                    web_user = self.web_users[username]
+                    user_info['inventory'] = [self.items[item_id].name for item_id in web_user.inventory if item_id in self.items]
+                    user_info['room_name'] = self.rooms[web_user.room_id].name if web_user.room_id in self.rooms else 'Unknown'
+                
+                return jsonify(user_info)
+                
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/command', methods=['POST'])
+        @require_whitelisted_ip
+        def api_send_command():
+            """Send command via MCP with session awareness"""
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({'error': 'No data provided'}), 400
+                
+                command = data.get('command', '').strip()
+                username = data.get('username', '').strip()
+                
+                if not command:
+                    return jsonify({'error': 'Command required'}), 400
+                
+                # Check for active MCP session first
+                if self.mcp_current_user and username == self.mcp_current_user:
+                    # Use existing MCP session
+                    if username in self.web_users:
+                        web_user = self.web_users[username]
+                        result = self.handle_user_command(web_user, command)
+                        return jsonify({
+                            'success': True,
+                            'result': result,
+                            'username': username,
+                            'session_type': 'mcp_logged_in'
+                        })
+                
+                # Fall back to temporary user context
+                admin = username == "admin" or username == "tester-admin"
+                temp_user = WebUser(name=username, session_id="", admin=admin, room_id="lobby")
+                result = self.handle_user_command(temp_user, command)
+                
+                return jsonify({
+                    'success': True,
+                    'result': result,
+                    'username': username,
+                    'session_type': 'temporary'
+                })
+                
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         

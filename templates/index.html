@@ -301,7 +301,8 @@
             const lines = text.split('\n');
             
             // Skip update if this is help text or other special content
-            if (text.includes('Available Commands:') || 
+            if (text.includes('Available commands:') || 
+                text.includes('Available Commands:') ||
                 text.includes('Type "help"') ||
                 text.includes('📢 Message of the Day:') ||
                 text.includes('🔧 Environment:')) {

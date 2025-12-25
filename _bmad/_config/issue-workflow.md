@@ -25,7 +25,8 @@ Structured workflow for handling GitHub issues from analysis through resolution,
 - **Explain implementation approach** and rationale
 - **Highlight any breaking changes** or considerations
 - **Request feedback** from stakeholders
-- **Wait for approval** before proceeding
+- **Check user prompt for explicit restrictions** - if user says "don't implement" or "ask before implementing", wait for approval
+- **Otherwise, proceed with implementation** - no permission required after planning is complete
 
 ### 4. Implement and Test
 - **Code the solution** following proposed approach
@@ -33,6 +34,7 @@ Structured workflow for handling GitHub issues from analysis through resolution,
 - **Test functionality** locally and on deployment
 - **Verify edge cases** and error handling
 - **Document changes** in commit messages
+- **IMPORTANT: Only wait for approval if explicitly requested by user**
 
 ### 5. Request Approval to Close
 - **Demonstrate working solution** with examples

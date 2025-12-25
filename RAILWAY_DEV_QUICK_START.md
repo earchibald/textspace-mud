@@ -145,6 +145,7 @@ curl https://exciting-liberation-production.up.railway.app/api/status | python3 
 
 - `BRANCHING_STRATEGY.md` - Complete branch strategy and workflow
 - `.devcontainer/railway-dev-setup.md` - Dev environment detailed setup
+- `.devcontainer/RAILWAY_DEVELOP_BRANCH_SETUP.md` - **Connect develop branch to dev environment**
 - `_bmad/_config/deployment-process.md` - Deployment process documentation
 - `.vscode/tasks.json` - VS Code deployment and monitoring tasks
 - `railway-dev.json` - Development Railway configuration
@@ -152,19 +153,37 @@ curl https://exciting-liberation-production.up.railway.app/api/status | python3 
 
 ## Next Steps
 
-1. **Set up Railway Dev Project** (if not already done)
-   - Run: `railway link` and select/create dev project
-   - Set environment variables from "Environment Variables" section above
+1. **Connect Develop Branch to Development Environment** ⭐ **DO THIS FIRST**
+   - Read: `.devcontainer/RAILWAY_DEVELOP_BRANCH_SETUP.md` for detailed instructions
+   - Quick summary:
+     ```bash
+     # Install Railway CLI (if not already installed)
+     npm install -g @railway/cli
+     
+     # Link to development project
+     railway link
+     # Select: textspace-mud (development environment)
+     
+     # Set environment variables
+     railway variables set PORT 8080
+     railway variables set RAILWAY_ENVIRONMENT_NAME development
+     
+     # In Railway Dashboard UI:
+     # Go to service > Settings > Git > Deploy from branch: select "develop"
+     
+     # Test deployment
+     railway up
+     ```
 
 2. **Start Development**
-   - Create feature branch
+   - Create feature branch from develop
    - Make changes
    - Merge to develop
-   - Test in Dev Railway
+   - Watch auto-deployment to Dev Railway
 
 3. **Promote When Ready**
-   - Create PR to main
-   - After approval, merge
+   - Create PR from develop to main
+   - After approval, merge to main
    - Verify in Production Railway
 
 ## Support

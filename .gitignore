@@ -43,3 +43,4 @@ backup_*/
 .idea/
 *.swp
 *.swo
+data/

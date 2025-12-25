@@ -776,8 +776,9 @@ class TextSpaceServer:
                     return jsonify({'error': 'Command required'}), 400
                 
                 # Check for active MCP session first
-                if self.mcp_current_user and username == self.mcp_current_user:
-                    # Use existing MCP session
+                if self.mcp_current_user:
+                    # Use existing MCP session (always prefer MCP session if logged in)
+                    username = self.mcp_current_user
                     if username in self.web_users:
                         result = self.process_command(username, command)
                         return jsonify({
@@ -786,8 +787,40 @@ class TextSpaceServer:
                             'username': username,
                             'session_type': 'mcp_logged_in'
                         })
+                    else:
+                        return jsonify({
+                            'success': False,
+                            'error': 'MCP session exists but user not found. Try logging in again.',
+                            'session_type': 'mcp_error'
+                        }), 400
                 
-                # Fall back to temporary user context
+                # Fall back to temporary user context (or specified username)
+                if not username:
+                    return jsonify({
+                        'success': False,
+                        'error': 'No active MCP session and no username specified. Use mcp_login first or provide username.',
+                        'session_type': 'no_session'
+                    }), 400
+                
+                # Create temporary user if needed
+                if username not in self.web_users:
+                    admin = username == "admin" or username == "tester-admin"
+                    temp_user = WebUser(
+                        name=username,
+                        session_id=f"temp_{username}",
+                        authenticated=False,
+                        admin=admin,
+                        room_id='lobby'
+                    )
+                    self.web_users[username] = temp_user
+                    self.web_sessions[temp_user.session_id] = username
+                    
+                    # Add to room
+                    if temp_user.room_id in self.rooms:
+                        self.rooms[temp_user.room_id].users.add(username)
+                    
+                    logger.info(f"Created temporary user '{username}' for API command")
+                
                 result = self.process_command(username, command)
                 
                 return jsonify({

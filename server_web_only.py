@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.9.1"
+VERSION = "2.9.2"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -1208,7 +1208,18 @@ class TextSpaceServer:
             if item_id in self.items:
                 item = self.items[item_id]
                 if item.name.lower() == target_name.lower():
-                    return f"{item.name}: {item.description}"
+                    # If this is a container, show contents if open
+                    description = f"{item.name}: {item.description}"
+                    if hasattr(item, 'is_container') and item.is_container:
+                        if hasattr(item, 'is_open') and item.is_open:
+                            if hasattr(item, 'contents') and item.contents:
+                                contents_names = [self.items[c_id].name for c_id in item.contents if c_id in self.items]
+                                description += f"\nContains: {', '.join(contents_names)}"
+                            else:
+                                description += "\nIt is empty and open."
+                        else:
+                            description += "\nIt is closed."
+                    return description
         
         # Check room items (including items in open containers)
         room = self.rooms.get(web_user.room_id)
@@ -1218,7 +1229,18 @@ class TextSpaceServer:
                 if item_id in self.items:
                     item = self.items[item_id]
                     if item.name.lower() == target_name.lower():
-                        return f"{item.name}: {item.description}"
+                        # If this is a container, show contents if open
+                        description = f"{item.name}: {item.description}"
+                        if hasattr(item, 'is_container') and item.is_container:
+                            if hasattr(item, 'is_open') and item.is_open:
+                                if hasattr(item, 'contents') and item.contents:
+                                    contents_names = [self.items[c_id].name for c_id in item.contents if c_id in self.items]
+                                    description += f"\nContains: {', '.join(contents_names)}"
+                                else:
+                                    description += "\nIt is empty and open."
+                            else:
+                                description += "\nIt is closed."
+                        return description
             
             # Check items in open containers
             for item_id in room.items:
@@ -2052,7 +2074,12 @@ Admin commands:
         for username in self.rooms[room_id].users:
             if username != exclude_user and username in self.web_users:
                 web_user = self.web_users[username]
-                emit('message', {'text': message}, room=web_user.session_id)
+                try:
+                    # Try to emit via SocketIO (for web users)
+                    emit('message', {'text': message}, room=web_user.session_id)
+                except RuntimeError:
+                    # No SocketIO context (e.g., MCP API calls) - skip notification
+                    pass
     
     def send_to_all(self, message, exclude_user=None):
         """Send message to all users"""

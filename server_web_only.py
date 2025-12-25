@@ -1694,7 +1694,7 @@ Admin commands:
         # Send whisper to target
         whisper_message = f"{web_user.name} whispers: {message}"
         try:
-            emit('message', {'text': whisper_message}, room=target_user.session_id)
+            self.socketio.emit('message', {'text': whisper_message}, room=target_user.session_id)
         except RuntimeError:
             # No SocketIO context (e.g., MCP API calls) - skip notification
             pass
@@ -2082,7 +2082,7 @@ Admin commands:
                 web_user = self.web_users[username]
                 try:
                     # Try to emit via SocketIO (for web users)
-                    emit('message', {'text': message}, room=web_user.session_id)
+                    self.socketio.emit('message', {'text': message}, room=web_user.session_id)
                 except RuntimeError:
                     # No SocketIO context (e.g., MCP API calls) - skip notification
                     pass

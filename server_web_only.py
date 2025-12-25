@@ -1693,7 +1693,11 @@ Admin commands:
         
         # Send whisper to target
         whisper_message = f"{web_user.name} whispers: {message}"
-        emit('message', {'text': whisper_message}, room=target_user.session_id)
+        try:
+            emit('message', {'text': whisper_message}, room=target_user.session_id)
+        except RuntimeError:
+            # No SocketIO context (e.g., MCP API calls) - skip notification
+            pass
         
         return f"You whisper to {target_username}: {message}"
     

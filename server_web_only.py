@@ -18,7 +18,7 @@ from command_registry import Command, CommandRegistry
 from functools import wraps
 
 # Version tracking
-VERSION = "2.9.2"
+VERSION = "2.9.4"
 
 # Server configuration
 SERVER_NAME = os.getenv("SERVER_NAME", "The Text Spot")
@@ -1067,52 +1067,62 @@ class TextSpaceServer:
                             'admin_only': False,
                             'type': 'argument'
                         })
-            elif len(words) == 2:  # "put ITEM"
-                if full_text.endswith(' '):
-                    # Suggest "in" and available containers
-                    if "in".startswith(partial):
-                        completions.append({
-                            'name': 'in',
-                            'usage': f"put {words[1]} in <container>",
-                            'aliases': [],
-                            'admin_only': False,
-                            'type': 'preposition'
-                        })
-                    # Also suggest open containers directly
+            else:
+                # len(words) >= 2: could be "put ITEM" or "put ITEM in" or multi-word item
+                # Check if "in" is in the words (after the item)
+                if "in" in words:
+                    # "put ITEM in CONTAINER" - suggest containers
+                    in_index = words.index("in")
                     containers = self.get_completion_context(username, "open_container")
                     for container in containers:
-                        if container.lower().startswith(partial):
+                        # Only show containers that start with partial, or all if partial is empty
+                        if not partial or container.lower().startswith(partial.lower()):
                             completions.append({
                                 'name': container,
-                                'usage': f"put {words[1]} in {container}",
+                                'usage': f"put ... in {container}",
                                 'aliases': [],
                                 'admin_only': False,
                                 'type': 'container'
                             })
                 else:
-                    # Completing the item name
-                    items = self.get_completion_context(username, "inventory_item")
-                    for item in items:
-                        if item.lower().startswith(partial):
+                    # No "in" yet - determine if we should suggest preposition or still completing item
+                    # Key insight: if full_text ends with space, we're at the preposition stage
+                    # If it doesn't end with space but partial starts with 'i', could be "in"
+                    # Otherwise still completing item name
+                    
+                    if full_text.endswith(' ') or (partial and "in".startswith(partial)):
+                        # At preposition stage: suggest "in" and containers
+                        if not partial or "in".startswith(partial):
                             completions.append({
-                                'name': item,
-                                'usage': f"put {item}",
+                                'name': 'in',
+                                'usage': f"put ... in <container>",
                                 'aliases': [],
                                 'admin_only': False,
-                                'type': 'argument'
+                                'type': 'preposition'
                             })
-            elif len(words) >= 3 and words[2] == "in":
-                # "put ITEM in CONTAINER"
-                containers = self.get_completion_context(username, "open_container")
-                for container in containers:
-                    if container.lower().startswith(partial):
-                        completions.append({
-                            'name': container,
-                            'usage': f"put {words[1]} in {container}",
-                            'aliases': [],
-                            'admin_only': False,
-                            'type': 'argument'
-                        })
+                        # Also suggest open containers directly
+                        containers = self.get_completion_context(username, "open_container")
+                        for container in containers:
+                            if container.lower().startswith(partial):
+                                completions.append({
+                                    'name': container,
+                                    'usage': f"put ... in {container}",
+                                    'aliases': [],
+                                    'admin_only': False,
+                                    'type': 'container'
+                                })
+                    else:
+                        # Still completing the item name (multi-word item)
+                        items = self.get_completion_context(username, "inventory_item")
+                        for item in items:
+                            if item.lower().startswith(partial):
+                                completions.append({
+                                    'name': item,
+                                    'usage': f"put {item}",
+                                    'aliases': [],
+                                    'admin_only': False,
+                                    'type': 'argument'
+                                })
         
         elif command_name == "give":
             # give ITEM to TARGET
@@ -1128,52 +1138,61 @@ class TextSpaceServer:
                             'admin_only': False,
                             'type': 'argument'
                         })
-            elif len(words) == 2:  # "give ITEM"
-                if full_text.endswith(' '):
-                    # Suggest "to" and available targets
-                    if "to".startswith(partial):
-                        completions.append({
-                            'name': 'to',
-                            'usage': f"give {words[1]} to <target>",
-                            'aliases': [],
-                            'admin_only': False,
-                            'type': 'preposition'
-                        })
-                    # Also suggest targets directly
+            else:
+                # len(words) >= 2: could be "give ITEM" or "give ITEM to" or multi-word item
+                # Check if "to" is in the words
+                if "to" in words:
+                    # "give ITEM to TARGET" - suggest targets
                     targets = self.get_completion_context(username, "give_target")
                     for target in targets:
-                        if target.lower().startswith(partial):
+                        # Only show targets that start with partial, or all if partial is empty
+                        if not partial or target.lower().startswith(partial.lower()):
                             completions.append({
                                 'name': target,
-                                'usage': f"give {words[1]} to {target}",
+                                'usage': f"give ... to {target}",
                                 'aliases': [],
                                 'admin_only': False,
                                 'type': 'target'
                             })
                 else:
-                    # Completing the item name
-                    items = self.get_completion_context(username, "inventory_item")
-                    for item in items:
-                        if item.lower().startswith(partial):
+                    # No "to" yet - determine if we should suggest preposition or still completing item
+                    # Key insight: if full_text ends with space, we're at the preposition stage
+                    # If it doesn't end with space but partial starts with 't', could be "to"
+                    # Otherwise still completing item name
+                    
+                    if full_text.endswith(' ') or (partial and "to".startswith(partial)):
+                        # At preposition stage: suggest "to" and targets
+                        if not partial or "to".startswith(partial):
                             completions.append({
-                                'name': item,
-                                'usage': f"give {item}",
+                                'name': 'to',
+                                'usage': f"give ... to <target>",
                                 'aliases': [],
                                 'admin_only': False,
-                                'type': 'argument'
+                                'type': 'preposition'
                             })
-            elif len(words) >= 3 and words[2] == "to":
-                # "give ITEM to TARGET"
-                targets = self.get_completion_context(username, "give_target")
-                for target in targets:
-                    if target.lower().startswith(partial):
-                        completions.append({
-                            'name': target,
-                            'usage': f"give {words[1]} to {target}",
-                            'aliases': [],
-                            'admin_only': False,
-                            'type': 'argument'
-                        })
+                        # Also suggest targets directly
+                        targets = self.get_completion_context(username, "give_target")
+                        for target in targets:
+                            if target.lower().startswith(partial):
+                                completions.append({
+                                    'name': target,
+                                    'usage': f"give ... to {target}",
+                                    'aliases': [],
+                                    'admin_only': False,
+                                    'type': 'target'
+                                })
+                    else:
+                        # Still completing the item name (multi-word item)
+                        items = self.get_completion_context(username, "inventory_item")
+                        for item in items:
+                            if item.lower().startswith(partial):
+                                completions.append({
+                                    'name': item,
+                                    'usage': f"give {item}",
+                                    'aliases': [],
+                                    'admin_only': False,
+                                    'type': 'argument'
+                                })
         
         return completions
     

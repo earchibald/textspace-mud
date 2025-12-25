@@ -1,0 +1,26 @@
+{
+  "name": "TextSpace Dev",
+  "image": "mcr.microsoft.com/devcontainers/python:3.10-bullseye",
+  "remoteUser": "vscode",
+  "features": {},
+  "postCreateCommand": "bash -c 'sudo apt-get update && sudo apt-get install -y curl build-essential procps file git && pip install --no-cache-dir -r requirements.txt && NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" && (echo; echo \"eval \\\"\\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\\\"\" ) >> ~/.bashrc && eval \"$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\" && brew install railway'",
+  "forwardPorts": [8080],
+  "remoteEnv": {
+    "PORT": "8080"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "ms-azuretools.vscode-docker",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.autoImportCompletions": true
+      }
+    }
+  }
+}

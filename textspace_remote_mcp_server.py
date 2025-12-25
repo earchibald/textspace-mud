@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("textspace-remote-mcp")
 
 # Force restart by adding timestamp
-# Last updated: 2025-12-21 22:16:45 - Changed to API-based server control
+# Last updated: 2025-12-24 16:09:35 - Added MCP login/logout/status tools
 
 # Initialize MCP server
 server = Server("textspace-remote-mcp")
@@ -191,22 +191,83 @@ class RemoteTextSpaceManager:
             return f"Error connecting WebSocket: {str(e)}"
     
     def send_command(self, command: str, username: str = "admin") -> str:
-        """Send command to remote TextSpace server via WebSocket"""
+        """Send command to remote TextSpace server via MCP API"""
         try:
-            if not self.ws_connected or not self.ws_connection:
-                # Try to reconnect
-                self.connect_websocket()
-                time.sleep(1)
+            response = requests.post(
+                f"{self.base_url}/api/command",
+                json={"command": command, "username": username},
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success"):
+                    return f"✅ Command executed: {result.get('result', 'No output')}"
+                else:
+                    return f"❌ Command failed: {result.get('result', 'Unknown error')}"
+            else:
+                return f"❌ HTTP Error {response.status_code}"
                 
-            if not self.ws_connected:
-                return "Not connected to server. Use connect_websocket first."
-            
-            # Send command directly as text (simplified approach)
-            self.ws_connection.send(command)
-            
-            return f"Command '{command}' sent as user '{username}'"
         except Exception as e:
-            return f"Error sending command: {str(e)}"
+            return f"❌ Error sending command: {str(e)}"
+    
+    def mcp_login(self, username: str) -> str:
+        """Login via MCP API"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/mcp/login",
+                json={"username": username},
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success"):
+                    return f"✅ Logged in as {username} (admin: {result.get('admin', False)})"
+                else:
+                    return f"❌ Login failed: {result.get('message', 'Unknown error')}"
+            else:
+                return f"❌ HTTP Error {response.status_code}"
+                
+        except Exception as e:
+            return f"❌ Error logging in: {str(e)}"
+    
+    def mcp_logout(self, username: str) -> str:
+        """Logout via MCP API"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/mcp/logout",
+                json={"username": username},
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success"):
+                    return f"✅ Logged out: {result.get('message', 'Success')}"
+                else:
+                    return f"❌ Logout failed: {result.get('message', 'Unknown error')}"
+            else:
+                return f"❌ HTTP Error {response.status_code}"
+                
+        except Exception as e:
+            return f"❌ Error logging out: {str(e)}"
+    
+    def mcp_status(self) -> Dict[str, Any]:
+        """Get MCP session status"""
+        try:
+            response = requests.get(f"{self.base_url}/api/mcp/status", timeout=10)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": f"HTTP {response.status_code}", "logged_in": False}
+                
+        except Exception as e:
+            return {"error": str(e), "logged_in": False}
     
     def get_recent_messages(self, count: int = 10) -> List[Dict]:
         """Get recent WebSocket messages"""
@@ -459,6 +520,45 @@ async def list_tools() -> List[Tool]:
             }
         ),
         Tool(
+            name="mcp_login",
+            description="Login to TextSpace server via MCP API",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "Username to login as",
+                        "default": "admin"
+                    }
+                },
+                "required": ["username"]
+            }
+        ),
+        Tool(
+            name="mcp_logout",
+            description="Logout from TextSpace server via MCP API",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "Username to logout",
+                        "default": "admin"
+                    }
+                },
+                "required": ["username"]
+            }
+        ),
+        Tool(
+            name="mcp_status",
+            description="Get MCP session status from TextSpace server",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        Tool(
             name="get_messages",
             description="Get recent WebSocket messages from remote server",
             inputSchema={
@@ -601,6 +701,29 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
         return [TextContent(
             type="text",
             text=result
+        )]
+    
+    elif name == "mcp_login":
+        username = arguments.get("username", "admin")
+        result = manager.mcp_login(username)
+        return [TextContent(
+            type="text",
+            text=result
+        )]
+    
+    elif name == "mcp_logout":
+        username = arguments.get("username", "admin")
+        result = manager.mcp_logout(username)
+        return [TextContent(
+            type="text",
+            text=result
+        )]
+    
+    elif name == "mcp_status":
+        status = manager.mcp_status()
+        return [TextContent(
+            type="text",
+            text=json.dumps(status, indent=2)
         )]
     
     elif name == "get_messages":

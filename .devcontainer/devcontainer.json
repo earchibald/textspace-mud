@@ -2,8 +2,12 @@
   "name": "TextSpace Dev",
   "image": "mcr.microsoft.com/devcontainers/python:3.10",
   "remoteUser": "vscode",
-  "features": {},
-  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt && npm install -g @railway/cli",
   "forwardPorts": [8080],
   "remoteEnv": {
     "PORT": "8080"

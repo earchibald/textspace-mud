@@ -1,0 +1,95 @@
+---
+# BMGD Workflow Status - 006-mats
+# Game Development Project Tracking
+# Generated: 2025-12-24
+
+project: "006-mats"
+project_type: "backend-service"
+user_name: "Eugene"
+experience_level: "intermediate"
+selected_track: "gamedev"
+field_type: "brownfield"
+method_name: "BMGD Game Development"
+
+# Phase progression tracking
+current_phase: 1
+current_workflow: null
+start_date: "2025-12-24"
+last_updated: "2025-12-24"
+
+# Workflow Status Tracking
+workflow_status:
+  # PHASE 0: Discovery (Optional)
+  phase_0_discovery:
+    status: "not_started"
+    optional: true
+    workflows:
+      brainstorm-game:
+        status: "not_started"
+        agent: "game-designer"
+        optional: true
+        note: "Creative exploration for new features"
+
+  # PHASE 1: Design
+  phase_1_design:
+    status: "in_progress"
+    required: true
+    workflows:
+      gdd:
+        status: "not_started"
+        agent: "game-designer"
+        command: "create-gdd"
+        required: true
+        output: "Game Design Document for new features/systems"
+        note: "Focus on changes and additions to existing game"
+      
+      narrative:
+        status: "not_started"
+        agent: "game-designer"
+        command: "narrative"
+        conditional: "if_narrative_focused"
+        note: "For story-driven additions"
+
+  # PHASE 2: Technical
+  phase_2_technical:
+    status: "not_started"
+    required: true
+    workflows:
+      game-architecture:
+        status: "not_started"
+        agent: "game-architect"
+        command: "create-architecture"
+        required: true
+        output: "Architecture update document"
+        note: "Focus on integration with existing systems"
+      
+      test-framework:
+        status: "not_started"
+        agent: "game-qa"
+        command: "test-framework"
+        recommended: true
+        output: "Testing framework extension"
+        note: "Extend existing tests or set up new framework"
+
+  # PHASE 3: Production
+  phase_3_production:
+    status: "not_started"
+    required: true
+    workflows:
+      sprint-planning:
+        status: "not_started"
+        agent: "game-scrum-master"
+        command: "sprint-planning"
+        required: true
+        note: "Creates sprint plan - subsequent work tracked in sprint-status.yaml"
+
+# Navigation
+next_recommended_workflow: "gdd"
+next_recommended_agent: "game-designer"
+
+# Quick reference commands
+helpful_commands:
+  - "*workflow-status"
+  - "*create-gdd"
+  - "*create-architecture"
+  - "*sprint-planning"

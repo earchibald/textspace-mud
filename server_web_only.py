@@ -153,6 +153,10 @@ class TextSpaceServer:
         
         logger.info("Web-only Text Space Server initialized")
     
+    def is_admin_username(self, username: str) -> bool:
+        """Check if a username should have admin privileges"""
+        return username == "admin" or username == "tester-admin"
+    
     def setup_commands(self):
         """Setup command registry with all available commands"""
         # Basic commands
@@ -638,7 +642,7 @@ class TextSpaceServer:
                 if not username:
                     return jsonify({'error': 'Username required'}), 400
                 
-                admin = data.get('admin', False) or username == "admin" or username == "tester-admin"
+                admin = data.get('admin', False) or self.is_admin_username(username)
                 
                 # Create WebUser instance
                 web_user = WebUser(
@@ -788,10 +792,16 @@ class TextSpaceServer:
                             'session_type': 'mcp_logged_in'
                         })
                     else:
+                        # Inconsistent state - clean up invalid MCP session
+                        logger.warning(f"Inconsistent MCP session state for user '{username}'. Cleaning up.")
+                        if username in self.mcp_sessions:
+                            del self.mcp_sessions[username]
+                        self.mcp_current_user = None
+                        
                         return jsonify({
                             'success': False,
-                            'error': 'MCP session exists but user not found. Try logging in again.',
-                            'session_type': 'mcp_error'
+                            'error': 'MCP session was invalid and has been cleaned up. Please login again.',
+                            'session_type': 'mcp_cleaned_up'
                         }), 400
                 
                 # Fall back to temporary user context (or specified username)
@@ -804,7 +814,7 @@ class TextSpaceServer:
                 
                 # Create temporary user if needed
                 if username not in self.web_users:
-                    admin = username == "admin" or username == "tester-admin"
+                    admin = self.is_admin_username(username)
                     temp_user = WebUser(
                         name=username,
                         session_id=f"temp_{username}",
@@ -853,7 +863,7 @@ class TextSpaceServer:
                 emit('login_response', {'success': False, 'message': 'Username required'})
                 return
             
-            admin = username == "admin" or username == "tester-admin"
+            admin = self.is_admin_username(username)
             web_user = WebUser(
                 name=username,
                 session_id=request.sid,

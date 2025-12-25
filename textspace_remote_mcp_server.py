@@ -262,7 +262,11 @@ class RemoteTextSpaceManager:
             return {"error": str(e), "logged_in": False}
     
     def send_command_with_session(self, command: str, username: str = None) -> Dict[str, Any]:
-        """Send command using MCP session if available, or specify username"""
+        """Send command using MCP session if available on server, or specify username for temporary context
+        
+        If an MCP session is active on the server, it will be used automatically.
+        The username parameter is only used as a fallback when no MCP session exists.
+        """
         try:
             response = requests.post(
                 f"{self.base_url}/api/command",
@@ -704,8 +708,8 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
         # First check if there's an active MCP session
         status = manager.mcp_status()
         if status.get("logged_in"):
-            # Use session-aware command API
-            result = manager.send_command_with_session(command, status.get("username"))
+            # Use session-aware command API (will use MCP session automatically)
+            result = manager.send_command_with_session(command)
             if result.get("success"):
                 return [TextContent(
                     type="text",

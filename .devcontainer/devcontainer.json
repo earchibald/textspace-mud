@@ -1,14 +1,9 @@
 {
   "name": "TextSpace Dev",
-  "image": "mcr.microsoft.com/devcontainers/python:3.10",
-  "runArgs": ["--platform=linux/amd64"],
+  "image": "mcr.microsoft.com/devcontainers/python:3.10-bullseye",
   "remoteUser": "vscode",
-  "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "20"
-    }
-  },
-  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt && (npm install -g @railway/cli || echo 'Railway CLI install failed - see RAILWAY_CLI_SETUP.md for manual installation')",
+  "features": {},
+  "postCreateCommand": "bash -c 'sudo apt-get update && sudo apt-get install -y curl build-essential procps file git && pip install --no-cache-dir -r requirements.txt && /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" && (echo; echo \"eval \\\"\\$($(brew --prefix)/bin/brew shellenv)\\\"\" ) >> ~/.bashrc && eval \"$($(brew --prefix)/bin/brew shellenv)\" && brew install railway'",
   "forwardPorts": [8080],
   "remoteEnv": {
     "PORT": "8080"
@@ -18,7 +13,9 @@
       "extensions": [
         "ms-python.python",
         "ms-toolsai.jupyter",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",

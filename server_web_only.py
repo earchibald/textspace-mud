@@ -15,6 +15,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from script_engine import ScriptEngine
 from config_manager import ConfigManager
 from command_registry import Command, CommandRegistry
+from command_parser import CommandProcessor
 from functools import wraps
 
 # Version tracking
@@ -129,6 +130,12 @@ class TextSpaceServer:
         # Command registry
         self.command_registry = CommandRegistry()
         self.setup_commands()
+        
+        # Command processor (new parser framework)
+        self.command_processor = CommandProcessor(
+            self.command_registry,
+            self.get_completion_context
+        )
         
         # Configuration manager
         try:
@@ -904,53 +911,14 @@ class TextSpaceServer:
             pass  # Handled by client-side JavaScript
     
     def process_command(self, username, command):
-        """Process user command using generalized command registry"""
+        """Process user command using new parser framework"""
         if username not in self.web_users:
             return "User not found"
         
         web_user = self.web_users[username]
-        parts = command.split()
-        if not parts:
-            return "Please enter a command. Type 'help' for available commands."
         
-        cmd = parts[0].lower()
-        args = parts[1:] if len(parts) > 1 else []
-        
-        # Handle quote alias for say
-        if cmd.startswith('"') and len(cmd) > 1:
-            message = cmd[1:] + (" " + " ".join(args) if args else "")
-            return self.handle_say(web_user, message.strip())
-        
-        # Resolve command using existing logic
-        resolved_cmd = self.resolve_command(cmd, web_user.admin)
-        
-        # Handle ambiguous commands
-        if resolved_cmd.startswith("AMBIGUOUS:"):
-            matches = resolved_cmd.split(":")[1].split(",")
-            if len(matches) == 2:
-                resolved_cmd = matches[0]
-            else:
-                return f"Ambiguous command. Did you mean: {', '.join(matches)}?"
-        
-        # Get command from registry
-        command_def = self.command_registry.get_command(resolved_cmd)
-        if command_def:
-            # Check admin permissions
-            if command_def.admin_only and not web_user.admin:
-                return "Access denied. Admin privileges required."
-            
-            # Check argument requirements
-            if len(args) < command_def.args_required:
-                return f"Usage: {command_def.usage}"
-            
-            # Execute command
-            try:
-                return command_def.handler(web_user, args)
-            except Exception as e:
-                logger.error(f"Error executing command {resolved_cmd}: {e}")
-                return f"Error executing command: {str(e)}"
-        
-        return f"Unknown command: {cmd}. Type 'help' for available commands."
+        # Use the new command processor
+        return self.command_processor.process(username, command, web_user)
     
     def get_completion_context(self, username, arg_type):
         """Get contextual completion options based on argument type"""
